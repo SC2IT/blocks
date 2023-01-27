@@ -29,7 +29,6 @@ fn window_conf() -> Conf {
     }
 }
 
-// TODO: implement rotation wall kicks
 // TODO: load icon for rustris window
 // https://docs.rs/macroquad/0.3.25/macroquad/texture/struct.Image.html
 
