@@ -55,13 +55,12 @@ const SOFT_DROP_SCORE: usize = 1; // per row
 const HARD_DROP_SCORE: usize = 2; // per row
 
 // ASSET CONSTANTS
-// made by tools/make_chiptune.py, except the original
-const MUSIC_THEMES: [(&str, &str); 5] = [
+// made by tools/make_chiptune.py
+const MUSIC_THEMES: [(&str, &str); 4] = [
     ("Dance", "/music_dance.ogg"),
     ("Bounce", "/music_bounce.ogg"),
     ("Baroque", "/music_baroque.ogg"),
     ("Nocturne", "/music_nocturne.ogg"),
-    ("Original", "/music_1_8bit.ogg"),
 ];
 const VOLUME_LEVELS: u8 = 10; // steps on the options volume sliders
 pub const DEFAULT_VOLUME_LEVEL: u8 = 5;
@@ -126,19 +125,19 @@ pub enum Sfx {
 impl Sfx {
     fn path(self) -> &'static str {
         match self {
-            Sfx::Move => "/move.wav",
-            Sfx::Rotate => "/rotate.wav",
-            Sfx::Lock => "/lock.wav",
-            Sfx::HardDrop => "/hard_drop.wav",
-            Sfx::Hold => "/hold.wav",
-            Sfx::LineClear => "/line_clear.wav",
-            Sfx::LineClear2 => "/line_clear_2.wav",
-            Sfx::LineClear3 => "/line_clear_3.wav",
-            Sfx::Quad => "/quad.wav",
-            Sfx::LevelUp => "/level_up.wav",
-            Sfx::HighScore => "/high_score.wav",
-            Sfx::MenuMove => "/menu_move.wav",
-            Sfx::MenuSelect => "/menu_select.wav",
+            Sfx::Move => "/move.ogg",
+            Sfx::Rotate => "/rotate.ogg",
+            Sfx::Lock => "/lock.ogg",
+            Sfx::HardDrop => "/hard_drop.ogg",
+            Sfx::Hold => "/hold.ogg",
+            Sfx::LineClear => "/line_clear.ogg",
+            Sfx::LineClear2 => "/line_clear_2.ogg",
+            Sfx::LineClear3 => "/line_clear_3.ogg",
+            Sfx::Quad => "/quad.ogg",
+            Sfx::LevelUp => "/level_up.ogg",
+            Sfx::HighScore => "/high_score.ogg",
+            Sfx::MenuMove => "/menu_move.ogg",
+            Sfx::MenuSelect => "/menu_select.ogg",
         }
     }
 

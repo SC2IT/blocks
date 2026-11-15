@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Generate the game's 8-bit style sound effects into resources/ as 16-bit mono WAV files."""
+"""Generate the game's 8-bit style sound effects into resources/ as mono Ogg Vorbis files."""
 
 import math
 import pathlib
 import random
 import struct
+import subprocess
+import tempfile
 import wave
 
 RATE = 44100
@@ -127,12 +129,19 @@ def write(name, samples, peak=0.6):
     frames = bytearray()
     for s in samples:
         frames += struct.pack("<h", int(s / top * peak * 32767))
-    with wave.open(str(OUT_DIR / f"{name}.wav"), "wb") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(RATE)
-        w.writeframes(bytes(frames))
-    print(f"wrote {name}.wav ({len(samples) / RATE:.2f}s)")
+    with tempfile.TemporaryDirectory() as tmp:
+        wav_path = pathlib.Path(tmp) / "sfx.wav"
+        with wave.open(str(wav_path), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(RATE)
+            w.writeframes(bytes(frames))
+        subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(wav_path),
+             "-c:a", "libvorbis", "-q:a", "6", str(OUT_DIR / f"{name}.ogg")],
+            check=True,
+        )
+    print(f"wrote {name}.ogg ({len(samples) / RATE:.2f}s)")
 
 
 SOUNDS = {
