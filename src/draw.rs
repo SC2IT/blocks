@@ -37,6 +37,10 @@ const PLASMA_COLORS: (Color, Color) = (
     Color::new(0.02, 0.01, 0.06, 1.0),
     Color::new(0.1, 0.04, 0.19, 1.0),
 );
+const STORM_COLORS: (Color, Color) = (
+    Color::new(0.02, 0.025, 0.045, 1.0),
+    Color::new(0.08, 0.1, 0.14, 1.0),
+);
 const OFF_COLORS: (Color, Color) = (
     Color::new(0.06, 0.07, 0.09, 1.0),
     Color::new(0.16, 0.18, 0.22, 1.0),
@@ -68,6 +72,8 @@ const MENU_ROW_HEIGHT: f32 = 60.0;
 const MENU_PANEL_WIDTH: f32 = 520.0;
 const OPTIONS_PANEL_WIDTH: f32 = 680.0;
 const OPTION_ROW_HEIGHT: f32 = 40.0;
+const SELECTION_WORD_GAP: f32 = 24.0; // px from a bobbing block to a centered word, as from a row's end block to its label
+const BACK_GAP: f32 = 7.0; // px above Back on the options pages
 const PANEL_PADDING: f32 = 20.0;
 const SMALL_TEXT_SIZE: f32 = 16.0;
 const PAUSED_TITLE_SIZE: f32 = 64.0;
@@ -133,6 +139,50 @@ const WARP_STREAK: f32 = 0.4; // flight per px from center
 const WARP_ARRIVE: f32 = 0.35; // new stars start appearing
 const WARP_DOTS: usize = 48; // max per streak
 const PLASMA_SPEED: f32 = 0.8;
+const SEA_LEVEL: f32 = 0.75; // sea fills the view below this
+const SEA_STRIP: f32 = 6.0; // px per wave column
+const SEA_LAYERS: [(Color, f32, f32); 3] = [
+    // color, depth into the sea, wave height in px
+    (Color::new(0.09, 0.15, 0.2, 1.0), 0.0, 10.0),
+    (Color::new(0.05, 0.1, 0.15, 1.0), 0.22, 16.0),
+    (Color::new(0.025, 0.055, 0.09, 1.0), 0.5, 24.0),
+];
+const SEA_SPEED: f32 = 0.9;
+const SEA_SURGE: f32 = 1.2; // extra wave height at full energy
+const CREST_COLOR: Color = Color::new(0.55, 0.68, 0.78, 1.0);
+const FOAM_SLOPE: f32 = 0.9; // steeper crests break white
+const RAIN_DROPS: (usize, usize) = (260, 800); // calm to full storm, most of them up front
+const RAIN_FALL: f32 = 0.55; // views per second
+const RAIN_SLANT: (f32, f32) = (0.18, 0.75); // px sideways per px down, calm to full storm
+const GUST: f32 = 0.2; // extra slant in gusts at full storm
+const STORM_WAVES: f32 = 1.4; // extra wave height at full storm
+const SPRAY: usize = 90; // blown spray at full storm
+                         // (share of the drops when calm, streak length px, width px, brightness, fall speed), far to near
+const RAIN_LAYERS: [(f32, f32, f32, f32, f32); 4] = [
+    (0.4, 7.0, 1.0, 0.45, 0.6),
+    (0.3, 12.0, 1.0, 0.7, 0.85),
+    (0.2, 22.0, 2.0, 0.85, 1.2),
+    (0.1, 48.0, 3.0, 0.75, 1.8),
+];
+// share of the drops in a whiteout: the rain closes in and the distance disappears
+const RAIN_SHARE_STORM: [f32; 4] = [0.05, 0.1, 0.35, 0.5];
+const RAIN_COLOR: Color = Color::new(0.6, 0.7, 0.85, 1.0);
+const SEA_SCALE: [f32; 3] = [0.6, 0.9, 1.3]; // splash and spray size per sea layer, far to near
+const WHITEOUT_BANKS: usize = 14;
+const WHITEOUT_VEIL: (f32, f32) = (0.22, 0.62); // how washed out the sky and the sea get at the peak
+const WHITEOUT_COLOR: Color = Color::new(0.42, 0.47, 0.54, 1.0); // storm gray, light text stays readable
+const SPLASHES: usize = 40;
+const CLOUD_BLOBS: usize = 26;
+const CLOUD_DRIFT: f32 = 0.012; // views per second
+const CLOUD_COLOR: Color = Color::new(0.01, 0.012, 0.02, 1.0);
+const STRIKE_PERIOD: f32 = 7.0; // seconds of background time
+const STRIKE_CHANCE: f32 = 0.75;
+const STRIKE_TIME: f32 = 0.6; // seconds a strike lasts
+const BOLT_SEGMENTS: usize = 16;
+const BOLT_COLOR: Color = Color::new(0.85, 0.9, 1.0, 1.0);
+const BOLT_GLOW_COLOR: Color = Color::new(0.55, 0.65, 1.0, 1.0);
+const BOLT_BLOOM: [(f32, f32); 2] = [(14.0, 0.3), (4.0, 0.6)]; // (width in bolt sizes, strength)
+const FLASH_COLOR: Color = Color::new(0.75, 0.82, 1.0, 1.0);
 const TRAIL_ALPHA: f32 = 0.45;
 const IMPACT_ALPHA: f32 = 0.6;
 const LINE_CLEAR_COLOR: Color = Color::new(1.0, 0.92, 0.72, 1.0); // soft gold
@@ -336,6 +386,7 @@ fn window_colors(style: BackgroundStyle) -> (Color, Color) {
     match style {
         BackgroundStyle::Stars => STARS_COLORS,
         BackgroundStyle::Plasma => PLASMA_COLORS,
+        BackgroundStyle::Storm => STORM_COLORS,
         BackgroundStyle::Off => OFF_COLORS,
     }
 }
@@ -1105,7 +1156,595 @@ pub fn draw_background_animation(
     match background.style {
         BackgroundStyle::Stars => draw_stars(canvas, meshes, view_rect, background),
         BackgroundStyle::Plasma => draw_plasma(canvas, meshes, view_rect, background),
+        BackgroundStyle::Storm => draw_storm(canvas, meshes, view_rect, background),
         BackgroundStyle::Off => {}
+    }
+}
+
+/// lightning strike at a moment: (strike number, brightness 0.0 to 1.0)
+fn storm_strike(time: f32) -> Option<(usize, f32)> {
+    let k = (time / STRIKE_PERIOD).floor().max(0.0) as usize;
+    if hash(k, 21.0) > STRIKE_CHANCE {
+        return None;
+    }
+    let at = (k as f32 + hash(k, 22.0) * 0.8) * STRIKE_PERIOD;
+    let age = time - at;
+    if !(0.0..STRIKE_TIME).contains(&age) {
+        return None;
+    }
+    // bright, a quick dip, a second flicker, then gone
+    let fade = (1.0 - age / STRIKE_TIME).powi(2);
+    let flicker = 0.65 + 0.35 * (age * 45.0).cos();
+    Some((k, (fade * flicker).clamp(0.0, 1.0)))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum StrikeKind {
+    Fork,    // one bolt from the clouds into the sea
+    Double,  // two bolts at once, more common in a bigger storm
+    Sheet,   // the clouds light up from inside, no bolt
+    Crawl,   // a bolt crawling sideways along the cloud base
+    Distant, // a small, dim bolt far out to sea
+}
+
+impl StrikeKind {
+    pub const ALL: [StrikeKind; 5] = [
+        StrikeKind::Fork,
+        StrikeKind::Double,
+        StrikeKind::Sheet,
+        StrikeKind::Crawl,
+        StrikeKind::Distant,
+    ];
+
+    /// how brightly the sky flashes
+    fn flash(self) -> f32 {
+        match self {
+            StrikeKind::Fork => 1.0,
+            StrikeKind::Double => 1.3,
+            StrikeKind::Sheet => 1.5,
+            StrikeKind::Crawl => 0.8,
+            StrikeKind::Distant => 0.3,
+        }
+    }
+}
+
+/// which kind strike k is
+fn strike_kind(k: usize, storm: f32) -> StrikeKind {
+    let r = hash(k, 30.0);
+    let double = 0.08 + 0.17 * storm;
+    let distant = 0.2 * (1.0 - storm) + 0.05;
+    if r < double {
+        StrikeKind::Double
+    } else if r < double + distant {
+        StrikeKind::Distant
+    } else if r < double + distant + 0.2 {
+        StrikeKind::Sheet
+    } else if r < double + distant + 0.37 {
+        StrikeKind::Crawl
+    } else {
+        StrikeKind::Fork
+    }
+}
+
+/// lightning clock of the first bright strike of a kind, for screenshots
+pub fn storm_strike_time(kind: StrikeKind, storm: f32) -> f32 {
+    (0..100_000)
+        .map(|i| i as f32 * 0.01)
+        .find(|t| storm_strike(*t).is_some_and(|(k, b)| b > 0.85 && strike_kind(k, storm) == kind))
+        .unwrap_or(0.0)
+}
+
+/// height of a sea layer at x, 0.0 is calm
+fn sea_wave(x: f32, layer: usize, time: f32) -> f32 {
+    let t = time * SEA_SPEED;
+    let l = layer as f32 * 1.7;
+    0.55 * (x * 0.011 + t * 1.3 + l).sin()
+        + 0.3 * (x * 0.027 - t * 0.9 + l * 2.0).sin()
+        + 0.15 * (x * 0.061 + t * 2.1 - l).sin()
+}
+
+fn draw_storm(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background: &Background) {
+    let (x0, w, h) = (view_rect.x, view_rect.w, view_rect.h);
+    let sea_top = view_rect.y + h * SEA_LEVEL;
+    let sea_h = view_rect.y + h - sea_top;
+    let strike = storm_strike(background.bolt)
+        .map(|(k, bright)| (k, bright, strike_kind(k, background.storm)));
+    // line clears light up the clouds too
+    let flash = strike
+        .map_or(0.0, |(_, b, kind)| (b * kind.flash()).min(1.0))
+        .max(background.energy * 0.7);
+
+    // heavy clouds rolling across the top
+    for i in 0..CLOUD_BLOBS {
+        let n = |k: f32| hash(i, k + 300.0);
+        let x = x0
+            + ((n(1.0) - background.wind * CLOUD_DRIFT * (0.6 + 0.4 * n(2.0))).rem_euclid(1.0)
+                * 1.4
+                - 0.2)
+                * w;
+        let y = view_rect.y + h * (0.02 + 0.22 * n(3.0));
+        let radius = w * (0.12 + 0.1 * n(4.0));
+        canvas.draw(
+            &meshes.glow,
+            graphics::DrawParam::default()
+                .dest(Vec2::new(x, y))
+                .scale(Vec2::new(radius, radius * (0.35 + 0.2 * n(5.0))))
+                .color(with_alpha(CLOUD_COLOR, 0.55 + 0.3 * n(6.0))),
+        );
+    }
+
+    // sky flash and the bolt
+    if flash > 0.0 {
+        draw_rect(
+            canvas,
+            meshes,
+            *view_rect,
+            with_alpha(FLASH_COLOR, 0.12 * flash),
+        );
+    }
+    if let Some((k, bright, kind)) = strike {
+        let cloud_base = view_rect.y + h * 0.18;
+        let start_x = |seed: usize| x0 + w * (0.12 + 0.76 * hash(seed, 23.0));
+        canvas.set_blend_mode(graphics::BlendMode::ADD);
+        match kind {
+            StrikeKind::Fork => {
+                draw_fork(
+                    canvas,
+                    meshes,
+                    k,
+                    start_x(k),
+                    cloud_base,
+                    sea_top,
+                    w,
+                    bright,
+                );
+            }
+            StrikeKind::Double => {
+                let first = start_x(k);
+                // keep the second bolt well away from the first
+                let second = x0
+                    + (first - x0 + w * (0.3 + 0.4 * hash(k, 31.0))).rem_euclid(w * 0.8)
+                    + w * 0.1;
+                draw_fork(canvas, meshes, k, first, cloud_base, sea_top, w, bright);
+                draw_fork(
+                    canvas,
+                    meshes,
+                    k + 7_919,
+                    second,
+                    cloud_base,
+                    sea_top,
+                    w,
+                    bright * 0.85,
+                );
+            }
+            StrikeKind::Sheet => {
+                // pockets of cloud flare up one after another
+                for p in 0..5 {
+                    let pulse = (bright * (1.0 + 0.6 * (p as f32 * 1.7 + bright * 9.0).sin()))
+                        .clamp(0.0, 1.0);
+                    let at = Vec2::new(
+                        x0 + w * (0.05 + 0.9 * hash(k * 13 + p, 32.0)),
+                        view_rect.y + h * (0.05 + 0.18 * hash(k * 13 + p, 33.0)),
+                    );
+                    canvas.draw(
+                        &meshes.glow,
+                        graphics::DrawParam::default()
+                            .dest(at)
+                            .scale(Vec2::new(w * 0.22, w * 0.09))
+                            .color(with_alpha(FLASH_COLOR, 0.4 * pulse)),
+                    );
+                }
+            }
+            StrikeKind::Crawl => {
+                // spider lightning along the cloud base, with a few short tendrils
+                let y = view_rect.y + h * (0.1 + 0.1 * hash(k, 34.0));
+                let from = Vec2::new(x0 + w * (0.05 + 0.3 * hash(k, 35.0)), y);
+                let to = Vec2::new(
+                    x0 + w * (0.6 + 0.35 * hash(k, 36.0)),
+                    y + h * (hash(k, 37.0) - 0.5) * 0.08,
+                );
+                let path = draw_bolt(
+                    canvas,
+                    meshes,
+                    from,
+                    to,
+                    22,
+                    2.5,
+                    h * 0.03,
+                    k,
+                    with_alpha(BOLT_COLOR, bright),
+                );
+                for t in 0..3 {
+                    let at = path[4 + t * 6];
+                    let to = at
+                        + Vec2::new(
+                            (hash(k * 3 + t, 38.0) - 0.5) * w * 0.08,
+                            h * (0.05 + 0.06 * hash(k * 3 + t, 39.0)),
+                        );
+                    draw_bolt(
+                        canvas,
+                        meshes,
+                        at,
+                        to,
+                        5,
+                        1.5,
+                        h * 0.012,
+                        k * 3 + t,
+                        with_alpha(BOLT_COLOR, bright * 0.5),
+                    );
+                }
+            }
+            StrikeKind::Distant => {
+                // small and dim, low on the horizon
+                let x = start_x(k);
+                let from = Vec2::new(x, view_rect.y + h * 0.3);
+                let to = Vec2::new(x + (hash(k, 40.0) - 0.5) * w * 0.05, sea_top);
+                draw_bolt(
+                    canvas,
+                    meshes,
+                    from,
+                    to,
+                    9,
+                    1.5,
+                    w * 0.012,
+                    k,
+                    with_alpha(BOLT_COLOR, bright * 0.45),
+                );
+            }
+        }
+        canvas.set_blend_mode(graphics::BlendMode::ALPHA);
+    }
+
+    // three layers of rain, each falling into its own layer of sea:
+    // far rain behind the back swell, near rain sweeping past in front
+    let storm = background.storm;
+    let gust = GUST * storm * (0.5 + 0.5 * (background.wind * 0.35).sin());
+    let whiteout = background.whiteout;
+    let slant = RAIN_SLANT.0 + (RAIN_SLANT.1 - RAIN_SLANT.0) * storm + gust + 0.4 * whiteout;
+    let drops = ((RAIN_DROPS.0 + ((RAIN_DROPS.1 - RAIN_DROPS.0) as f32 * storm) as usize) as f32
+        * (1.0 + 3.0 * whiteout)) as usize;
+    let rain_alpha =
+        ((0.18 + 0.1 * storm + 0.15 * whiteout) + 0.12 * background.energy) * (1.0 + flash);
+
+    // the sea, back layer to front, swelling with line clears and level ups
+    let swell =
+        (1.0 + STORM_WAVES * storm) * (1.0 + SEA_SURGE * background.energy + background.rush());
+    let sea = background.sea;
+    let foam_slope = FOAM_SLOPE * (1.0 - 0.45 * storm);
+    let lit = flash * 0.35;
+    let columns = (w / SEA_STRIP).ceil() as usize + 1;
+    let surface = |x: f32, layer: usize| {
+        let (_, depth, height) = SEA_LAYERS[layer];
+        sea_top + sea_h * depth - sea_wave(x, layer, sea) * height * swell
+    };
+    let rain = RainView {
+        view: *view_rect,
+        slant,
+        drops,
+        alpha: rain_alpha,
+        clock: background.rain,
+        storm,
+        forward: (0.7 * storm + 0.3 * whiteout).min(1.0),
+    };
+    for (layer, (color, depth, height)) in SEA_LAYERS.iter().enumerate() {
+        // rain for this depth falls first, so the swell in front hides where it lands
+        draw_rain_layer(canvas, meshes, &rain, layer, &|x| surface(x, layer));
+        let base = sea_top + sea_h * depth;
+        let color = mix_color(*color, FLASH_COLOR, lit * (1.0 - *depth));
+        for c in 0..columns {
+            let x = x0 + c as f32 * SEA_STRIP;
+            let wave = sea_wave(x, layer, sea);
+            let y = (base - wave * height * swell).round();
+            draw_rect(
+                canvas,
+                meshes,
+                Rect::new(x, y, SEA_STRIP, view_rect.y + h - y),
+                color,
+            );
+            // crest line, breaking to foam where the wave is steep
+            let slope =
+                (sea_wave(x + SEA_STRIP, layer, sea) - wave).abs() * height * swell / SEA_STRIP;
+            let foam = smoothstep(foam_slope * 0.5, foam_slope, slope);
+            let crest = mix_color(color, CREST_COLOR, 0.25 + 0.5 * foam + lit);
+            draw_rect(
+                canvas,
+                meshes,
+                Rect::new(x, y, SEA_STRIP, 2.0 + 2.0 * foam),
+                crest,
+            );
+        }
+        // rain bouncing off this swell, smaller and fainter further out
+        let scale = SEA_SCALE[layer];
+        let splashes = ((SPLASHES as f32 * (1.0 + storm)) * scale) as usize;
+        for i in 0..splashes {
+            let n = |k: f32| hash(i, k + 600.0 + layer as f32 * 70.0);
+            let phase = (n(1.0) + background.rain * (1.5 + n(2.0))).fract();
+            if phase > 0.25 {
+                continue;
+            }
+            let p = phase / 0.25;
+            let x = x0 + n(3.0) * w;
+            let y = surface(x, layer);
+            // two droplets jump up and out, then fall back
+            let spread = (2.0 + 6.0 * p) * scale;
+            let hop = (p * std::f32::consts::PI).sin() * 5.0 * scale + 2.0;
+            let alpha = 0.55 * (1.0 - p) * (0.5 + 0.5 * scale).min(1.0);
+            let size = if scale > 1.0 { 3.0 } else { 2.0 };
+            for side in [-1.0, 1.0] {
+                draw_rect(
+                    canvas,
+                    meshes,
+                    Rect::new((x + side * spread).round(), (y - hop).round(), size, size),
+                    with_alpha(RAIN_COLOR, alpha),
+                );
+            }
+        }
+        // wind tears spray off the crests in a strong storm
+        let spray = (SPRAY as f32 * smoothstep(0.2, 1.0, storm) * scale / 1.5) as usize;
+        for i in 0..spray {
+            let n = |k: f32| hash(i, k + 800.0 + layer as f32 * 70.0);
+            let phase = (n(1.0) + background.wind * (0.25 + 0.2 * n(2.0))).fract();
+            let start = x0 + n(3.0) * (w + 160.0);
+            let x = start - phase * (80.0 + 120.0 * n(4.0)) * (0.5 + storm) * scale;
+            let y = surface(start, layer)
+                - (phase * std::f32::consts::PI).sin() * (10.0 + 25.0 * n(5.0)) * storm * scale;
+            let alpha = 0.45 * (1.0 - phase) * storm;
+            let size = if n(6.0) < 0.3 { 3.0 } else { 2.0 } * scale.max(0.75);
+            draw_rect(
+                canvas,
+                meshes,
+                Rect::new(x.round(), y.round(), size.round(), size.round()),
+                with_alpha(CREST_COLOR, alpha),
+            );
+        }
+    }
+    // past a full storm, sheets of rain and mist wash out the view
+    if whiteout > 0.0 {
+        draw_whiteout(canvas, meshes, view_rect, background, whiteout, flash);
+    }
+    // the nearest rain sweeps across in front of everything
+    let front = SEA_LAYERS.len() - 1;
+    draw_rain_layer(canvas, meshes, &rain, RAIN_LAYERS.len() - 1, &|x| {
+        surface(x, front) + sea_h
+    });
+}
+
+/// blowing mist and a pale veil over the whole storm
+fn draw_whiteout(
+    canvas: &mut Canvas,
+    meshes: &Meshes,
+    view_rect: &Rect,
+    background: &Background,
+    whiteout: f32,
+    flash: f32,
+) {
+    let (x0, w, h) = (view_rect.x, view_rect.w, view_rect.h);
+    // banks of mist racing downwind
+    for i in 0..WHITEOUT_BANKS {
+        let n = |k: f32| hash(i, k + 900.0);
+        let x = x0
+            + ((n(1.0) - background.wind * 0.03 * (0.7 + 0.6 * n(2.0))).rem_euclid(1.0) * 1.6
+                - 0.3)
+                * w;
+        let y = view_rect.y + h * (0.1 + 0.85 * n(3.0));
+        let size = w * (0.2 + 0.2 * n(4.0));
+        canvas.draw(
+            &meshes.glow,
+            graphics::DrawParam::default()
+                .dest(Vec2::new(x, y))
+                .scale(Vec2::new(size, size * 0.35))
+                .color(with_alpha(
+                    WHITEOUT_COLOR,
+                    0.18 * whiteout * (0.6 + 0.4 * n(5.0)),
+                )),
+        );
+    }
+    // the veil thickens and thins with the gusts, and glows when lightning hits
+    let gusting = 0.85 + 0.15 * (background.wind * 0.5).sin();
+    let color = mix_color(WHITEOUT_COLOR, Color::WHITE, flash * 0.3);
+    draw_rect(
+        canvas,
+        meshes,
+        *view_rect,
+        with_alpha(color, WHITEOUT_VEIL.0 * whiteout * gusting),
+    );
+    // the sea disappears behind the downpour first
+    let sea_top = view_rect.y + h * (SEA_LEVEL - 0.06);
+    let over_sea = (WHITEOUT_VEIL.1 - WHITEOUT_VEIL.0) * whiteout * gusting;
+    draw_rect(
+        canvas,
+        meshes,
+        Rect::new(x0, sea_top, w, view_rect.y + h - sea_top),
+        with_alpha(color, over_sea),
+    );
+    // soft edge so the sea fades in rather than starting at a line
+    canvas.draw(
+        &meshes.background,
+        graphics::DrawParam::default()
+            .dest_rect(Rect::new(x0, sea_top, w, -h * 0.12))
+            .color(with_alpha(color, over_sea)),
+    );
+}
+
+/// what every rain layer shares
+struct RainView {
+    view: Rect,
+    slant: f32, // px sideways per px down
+    drops: usize,
+    alpha: f32,
+    clock: f32,
+    storm: f32,
+    forward: f32, // 0.0 rain spread into the distance to 1.0 crowded up front
+}
+
+/// one layer of rain, falling until it meets the surface below it
+fn draw_rain_layer(
+    canvas: &mut Canvas,
+    meshes: &Meshes,
+    rain: &RainView,
+    layer: usize,
+    surface: &dyn Fn(f32) -> f32,
+) {
+    let (calm_share, length, width, alpha, speed) = RAIN_LAYERS[layer];
+    // as the storm builds, drops move up front and the far rain thins out
+    let share = calm_share + (RAIN_SHARE_STORM[layer] - calm_share) * rain.forward;
+    let view = rain.view;
+    // drops fall along the wind: down and sideways by the slant
+    let lean = rain.slant.atan();
+    let fall = view.h * 1.15;
+    let count = (rain.drops as f32 * share) as usize;
+    for i in 0..count {
+        let n = |k: f32| hash(i, k + 400.0 + layer as f32 * 50.0);
+        let y = view.y - view.h * 0.1
+            + (n(2.0) + rain.clock * RAIN_FALL * speed * (0.9 + 0.2 * n(1.0))).fract() * fall;
+        // spread wider upwind so slanted rain still covers the view
+        let x = view.x + (n(3.0) * (1.3 + rain.slant) - 0.05) * view.w - (y - view.y) * rain.slant;
+        let len =
+            (length * (0.8 + 0.4 * n(4.0)) * (1.0 + 0.5 * rain.storm)).min(surface(x) + 2.0 - y);
+        if len <= 0.0 {
+            continue;
+        }
+        canvas.draw(
+            &meshes.rect,
+            graphics::DrawParam::default()
+                .dest(Vec2::new(x, y))
+                .rotation(lean)
+                .scale(Vec2::new(width, len))
+                .color(with_alpha(RAIN_COLOR, (rain.alpha * alpha).min(1.0))),
+        );
+    }
+}
+
+/// a jagged bolt from one point to another, returns the points along it
+#[allow(clippy::too_many_arguments)]
+fn draw_bolt(
+    canvas: &mut Canvas,
+    meshes: &Meshes,
+    from: Vec2,
+    to: Vec2,
+    segments: usize,
+    size: f32,
+    jag: f32,
+    seed: usize,
+    color: Color,
+) -> Vec<Vec2> {
+    let along = to - from;
+    let side = Vec2::new(-along.y, along.x).normalize_or_zero();
+    let mut offset = 0.0;
+    let mut path = vec![from];
+    for s in 1..=segments {
+        // wander off the line, pulled back so the bolt still lands on target
+        offset = if s == segments {
+            0.0
+        } else {
+            offset * 0.6 + (hash(seed * 97 + s, 25.0) - 0.5) * 2.0 * jag
+        };
+        let next = from + along * (s as f32 / segments as f32) + side * offset;
+        draw_bolt_segment(canvas, meshes, path[s - 1], next, size, color);
+        path.push(next);
+    }
+    path
+}
+
+/// cloud to sea bolt with a fork, a glow where it leaves the cloud and where it hits the water
+#[allow(clippy::too_many_arguments)]
+fn draw_fork(
+    canvas: &mut Canvas,
+    meshes: &Meshes,
+    seed: usize,
+    x: f32,
+    cloud_base: f32,
+    sea_top: f32,
+    w: f32,
+    bright: f32,
+) {
+    let from = Vec2::new(x, cloud_base);
+    let to = Vec2::new(x + (hash(seed, 41.0) - 0.5) * w * 0.25, sea_top);
+    canvas.draw(
+        &meshes.glow,
+        graphics::DrawParam::default()
+            .dest(from)
+            .scale(Vec2::new(w * 0.25, w * 0.12))
+            .color(with_alpha(FLASH_COLOR, 0.35 * bright)),
+    );
+    let path = draw_bolt(
+        canvas,
+        meshes,
+        from,
+        to,
+        BOLT_SEGMENTS,
+        3.0,
+        w * 0.035,
+        seed,
+        with_alpha(BOLT_COLOR, bright),
+    );
+    let fork_at = path[BOLT_SEGMENTS / 3 + (hash(seed, 24.0) * 3.0) as usize];
+    let side = if hash(seed, 26.0) < 0.5 { -1.0 } else { 1.0 };
+    let fork_to = fork_at
+        + Vec2::new(
+            side * w * (0.06 + 0.08 * hash(seed, 27.0)),
+            (sea_top - cloud_base) * 0.3,
+        );
+    draw_bolt(
+        canvas,
+        meshes,
+        fork_at,
+        fork_to,
+        6,
+        2.0,
+        w * 0.015,
+        seed + 1,
+        with_alpha(BOLT_COLOR, bright * 0.6),
+    );
+    // the strike lights up the water where it lands
+    canvas.draw(
+        &meshes.glow,
+        graphics::DrawParam::default()
+            .dest(to)
+            .scale(Vec2::new(w * 0.1, 22.0))
+            .color(with_alpha(FLASH_COLOR, 0.55 * bright)),
+    );
+}
+
+/// dotted line of a lightning bolt
+fn draw_bolt_segment(
+    canvas: &mut Canvas,
+    meshes: &Meshes,
+    from: Vec2,
+    to: Vec2,
+    size: f32,
+    color: Color,
+) {
+    // bloom: soft glow stretched along the whole segment, a wide halo and a tight core
+    let along = to - from;
+    let middle = from + along / 2.0;
+    let angle = along.y.atan2(along.x);
+    let half = along.length() / 2.0;
+    for (spread, strength) in BOLT_BLOOM {
+        let width = size * spread;
+        canvas.draw(
+            &meshes.glow,
+            graphics::DrawParam::default()
+                .dest(middle)
+                .rotation(angle)
+                .scale(Vec2::new(half + width, width))
+                .color(with_alpha(BOLT_GLOW_COLOR, color.a * strength)),
+        );
+    }
+    let dots = (along.length() / (size * 0.75)).ceil().max(1.0) as usize;
+    for d in 0..=dots {
+        let at = from + (to - from) * (d as f32 / dots as f32);
+        draw_rect(
+            canvas,
+            meshes,
+            Rect::new(
+                (at.x - size / 2.0).round(),
+                (at.y - size / 2.0).round(),
+                size,
+                size,
+            ),
+            color,
+        );
     }
 }
 
@@ -1496,11 +2135,34 @@ fn draw_selection(
     row: Rect,
     style: BlockStyle,
 ) {
+    draw_selection_around(ctx, canvas, meshes, row, None, style);
+}
+
+/// selection bar, with the bobbing blocks at its ends or hugging a centered word
+fn draw_selection_around(
+    ctx: &Context,
+    canvas: &mut Canvas,
+    meshes: &Meshes,
+    row: Rect,
+    word_width: Option<f32>,
+    style: BlockStyle,
+) {
     draw_rect(canvas, meshes, row, HIGHLIGHT_COLOR);
     let bob = util::fast_wobble(ctx.time.time_since_start().as_secs_f32()) * 3.0;
     let size = row.h * 0.3;
     let y = row.y + row.h / 2.0 - size / 2.0;
-    for x in [row.x + 12.0 + bob, row.x + row.w - 12.0 - size - bob] {
+    let (left, right) = match word_width {
+        // same gap to the word as a row's end block to its label
+        Some(width) => {
+            let center = row.x + row.w / 2.0;
+            (
+                center - width / 2.0 - SELECTION_WORD_GAP - size,
+                center + width / 2.0 + SELECTION_WORD_GAP,
+            )
+        }
+        None => (row.x + 12.0, row.x + row.w - 12.0 - size),
+    };
+    for x in [left + bob, right - bob] {
         draw_block(
             canvas,
             meshes,
@@ -1522,11 +2184,12 @@ fn draw_menu_list<T: Menu>(
     for (i, item) in menu.items().iter().enumerate() {
         let row = menu_row_rect(panel, i, MENU_ROW_HEIGHT);
         let selected = menu.selected() == i;
-        if selected {
-            draw_selection(ctx, canvas, meshes, row, style);
-        }
         let mut text = item.clone();
         text.set_font("04b30").set_scale(px(MENU_ITEM_SIZE));
+        if selected {
+            let width = text.measure_ui(ctx)?.x;
+            draw_selection_around(ctx, canvas, meshes, row, Some(width), style);
+        }
         let color = if selected { ACCENT_COLOR } else { Color::WHITE };
         draw_text_centered(ctx, canvas, &text, row.center().into(), color)?;
     }
@@ -1702,19 +2365,24 @@ fn draw_slider(
     }
 }
 
+/// what an options row shows on its right
+pub enum OptionRow<'a> {
+    Choice(&'a str, bool), // value, locked
+    Slider(u8),
+    Link, // opens another page: centered like Back, at the label size
+    Back,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn draw_options(
     ctx: &Context,
     canvas: &mut Canvas,
     meshes: &Meshes,
+    title: &str,
     menu: &menus::MenuList,
+    rows: &[OptionRow],
     mode: Mode,
-    mode_locked: bool, // during a game
-    theme: &str,
-    background: &str,
     style: &Style,
-    music_level: u8,
-    sound_level: u8,
     max_level: u8,
     view_settings: &ViewSettings,
 ) -> GameResult {
@@ -1722,13 +2390,13 @@ pub fn draw_options(
     draw_title(
         ctx,
         canvas,
-        "Options",
+        title,
         view_rect.h * 0.12,
         TITLE_SIZE,
         view_rect,
     )?;
 
-    // theme, volume sliders and back
+    // settings, sliders and back
     let panel = menu_panel_rect(
         view_rect,
         menu.items().len(),
@@ -1736,21 +2404,48 @@ pub fn draw_options(
         OPTIONS_PANEL_WIDTH,
         OPTION_ROW_HEIGHT,
     );
+    // a little space above Back so it reads as its own button
+    let back_gap = BACK_GAP;
+    let mut panel = panel;
+    panel.h += back_gap;
     let slider_width = max_level as f32 * (SLIDER_SEGMENT + SLIDER_GAP) - SLIDER_GAP;
     draw_panel(canvas, meshes, panel);
-    for (i, item) in menu.items().iter().enumerate() {
-        let row = menu_row_rect(panel, i, OPTION_ROW_HEIGHT);
-        let selected = menu.selected() == i;
-        if selected {
-            draw_selection(ctx, canvas, meshes, row, style.block);
+    for (i, (item, kind)) in menu.items().iter().zip(rows).enumerate() {
+        let mut row = menu_row_rect(panel, i, OPTION_ROW_HEIGHT);
+        if let OptionRow::Back = kind {
+            row.y += back_gap;
         }
-        let color = if selected { ACCENT_COLOR } else { Color::WHITE };
+        let selected = menu.selected() == i;
         let mut text = item.clone();
         text.set_font("04b30");
-        if i == menus::OPTION_BACK {
-            text.set_scale(px(MENU_ITEM_SIZE));
-            draw_text_centered(ctx, canvas, &text, row.center().into(), color)?;
-            continue;
+        if selected {
+            match kind {
+                // centered words: the blocks hug the word
+                OptionRow::Back | OptionRow::Link => {
+                    let size = if let OptionRow::Link = kind {
+                        OPTION_LABEL_SIZE
+                    } else {
+                        MENU_ITEM_SIZE
+                    };
+                    let width = text.clone().set_scale(px(size)).measure_ui(ctx)?.x;
+                    draw_selection_around(ctx, canvas, meshes, row, Some(width), style.block);
+                }
+                _ => draw_selection(ctx, canvas, meshes, row, style.block),
+            }
+        }
+        let color = if selected { ACCENT_COLOR } else { Color::WHITE };
+        match kind {
+            OptionRow::Back | OptionRow::Link => {
+                let size = if let OptionRow::Back = kind {
+                    MENU_ITEM_SIZE
+                } else {
+                    OPTION_LABEL_SIZE
+                };
+                text.set_scale(px(size));
+                draw_text_centered(ctx, canvas, &text, row.center().into(), color)?;
+                continue;
+            }
+            _ => {}
         }
 
         // label on the left, setting on the right
@@ -1764,61 +2459,41 @@ pub fn draw_options(
             color,
         );
         let right_x = row.x + row.w - 48.0;
-        match i {
-            menus::OPTION_MODE
-            | menus::OPTION_THEME
-            | menus::OPTION_BACKGROUND
-            | menus::OPTION_BLOCKS
-            | menus::OPTION_BOARD => {
-                let locked = i == menus::OPTION_MODE && mode_locked;
-                let value = match i {
-                    menus::OPTION_MODE => mode.name(),
-                    menus::OPTION_THEME => theme,
-                    menus::OPTION_BACKGROUND => background,
-                    menus::OPTION_BLOCKS => style.block.name(),
-                    _ => style.board.name(),
-                };
+        let arrow = SLIDER_SEGMENT * 0.6;
+        let arrow_color = if selected {
+            ACCENT_COLOR
+        } else {
+            SLIDER_EMPTY_COLOR
+        };
+        match kind {
+            OptionRow::Choice(value, locked) => {
                 let center_x = right_x - slider_width / 2.0;
                 draw_text_centered(
                     ctx,
                     canvas,
                     &ui_text(value, OPTION_LABEL_SIZE * 0.75),
                     Vec2::new(center_x, center_y),
-                    if locked { LABEL_COLOR } else { color },
+                    if *locked { LABEL_COLOR } else { color },
                 )?;
-                if locked {
+                if *locked {
                     continue;
                 }
                 // arrow blocks either side of the value
-                let arrow = SLIDER_SEGMENT * 0.6;
-                let arrow_color = if selected {
-                    ACCENT_COLOR
-                } else {
-                    SLIDER_EMPTY_COLOR
-                };
                 for x in [right_x - slider_width, right_x - arrow] {
                     let rect = Rect::new(x, center_y - arrow / 2.0, arrow, arrow);
                     draw_block(canvas, meshes, rect, arrow_color, style.block);
                 }
             }
-            menus::OPTION_MUSIC => draw_slider(
+            OptionRow::Slider(level) => draw_slider(
                 canvas,
                 meshes,
                 right_x,
                 center_y,
-                music_level,
+                *level,
                 max_level,
                 style.block,
             ),
-            _ => draw_slider(
-                canvas,
-                meshes,
-                right_x,
-                center_y,
-                sound_level,
-                max_level,
-                style.block,
-            ),
+            OptionRow::Back | OptionRow::Link => {}
         }
     }
 
@@ -1861,7 +2536,7 @@ pub fn draw_options(
     draw_hint(
         ctx,
         canvas,
-        "Up/Down: select   Left/Right: adjust   Esc: back",
+        "Up/Down: select   Left/Right: adjust   Enter: open   Esc: back",
         view_rect,
     )
 }

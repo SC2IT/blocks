@@ -34,12 +34,16 @@ pub enum Scene {
     HardDrop,
     Stars,
     Plasma,
+    Storm,
+    StormMax,
+    StormWhiteout,
     Paused,
     GameOver,
     GameOverSweep,
     GameOverDrop,
     Options,
     OptionsPaused,
+    OptionsAudio,
     Score,
     Flat,
     Neon,
@@ -53,7 +57,7 @@ pub enum Scene {
 }
 
 impl Scene {
-    const ALL: [(&'static str, Scene); 23] = [
+    const ALL: [(&'static str, Scene); 27] = [
         ("menu", Scene::Menu),
         ("playing", Scene::Playing),
         ("line-clear", Scene::LineClear),
@@ -61,12 +65,16 @@ impl Scene {
         ("hard-drop", Scene::HardDrop),
         ("stars", Scene::Stars),
         ("plasma", Scene::Plasma),
+        ("storm", Scene::Storm),
+        ("storm-max", Scene::StormMax),
+        ("storm-whiteout", Scene::StormWhiteout),
         ("paused", Scene::Paused),
         ("game-over", Scene::GameOver),
         ("game-over-sweep", Scene::GameOverSweep),
         ("game-over-drop", Scene::GameOverDrop),
         ("options", Scene::Options),
         ("options-paused", Scene::OptionsPaused),
+        ("options-audio", Scene::OptionsAudio),
         ("score", Scene::Score),
         ("flat", Scene::Flat),
         ("neon", Scene::Neon),
@@ -202,6 +210,11 @@ impl BlocksState {
         match scene {
             Scene::Menu => self.state = GameState::Menu,
             Scene::Options => self.state = GameState::Options,
+            Scene::OptionsAudio => {
+                self.state = GameState::Options;
+                self.audio_open = true;
+                crate::menus::Menu::next(&mut self.audio_state);
+            }
             Scene::Score => {
                 // part way through the score animation after a clear
                 self.setup_board();
@@ -221,12 +234,36 @@ impl BlocksState {
                 self.previous_state = GameState::Paused;
                 return;
             }
-            Scene::Stars | Scene::Plasma => {
-                self.background.style = if scene == Scene::Stars {
-                    BackgroundStyle::Stars
-                } else {
-                    BackgroundStyle::Plasma
+            Scene::Stars
+            | Scene::Plasma
+            | Scene::Storm
+            | Scene::StormMax
+            | Scene::StormWhiteout => {
+                self.background.style = match scene {
+                    Scene::Stars => BackgroundStyle::Stars,
+                    Scene::Plasma => BackgroundStyle::Plasma,
+                    _ => BackgroundStyle::Storm,
                 };
+                if scene == Scene::StormWhiteout {
+                    self.background.whiteout = 1.0;
+                }
+                if matches!(scene, Scene::StormMax | Scene::StormWhiteout) {
+                    self.background.storm = 1.0;
+                    self.background.wind = 40.0;
+                    self.background.rain = 40.0;
+                    self.background.sea = 40.0;
+                }
+                if matches!(scene, Scene::Storm | Scene::StormMax | Scene::StormWhiteout) {
+                    // catch a lightning strike near its brightest
+                    // STORM_STRIKE picks the kind of lightning: 0 fork, 1 double, 2 sheet, 3 crawl, 4 distant
+                    let kind = std::env::var("STORM_STRIKE")
+                        .ok()
+                        .and_then(|v| v.parse::<usize>().ok())
+                        .and_then(|i| crate::draw::StrikeKind::ALL.get(i).copied())
+                        .unwrap_or(crate::draw::StrikeKind::Fork);
+                    self.background.bolt =
+                        crate::draw::storm_strike_time(kind, self.background.storm);
+                }
                 self.setup_board();
                 self.setup_active();
                 self.state = GameState::Playing;
