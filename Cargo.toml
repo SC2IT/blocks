@@ -12,7 +12,7 @@ rand = "=0.10.3"
 rand_xoshiro = "=0.8.1"
 log = "=0.4.35"
 env_logger = { version = "=0.11.11", default-features = false }
-ggez = "=0.10.0"
+ggez = { version = "=0.10.0", default-features = false, features = ["audio"] }
 png = "=0.18.1"
 serde = { version = "=1.0.229", features = ["derive"] }
 toml = "=1.2.1"

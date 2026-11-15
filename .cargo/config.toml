@@ -11,6 +11,9 @@ opt-level = 3
 [profile.release]
 split-debuginfo = "true"
 strip = "symbols"
+lto = "fat"
+codegen-units = 1
+opt-level = "s"
 
 # ignore registry versions published less than 3 days ago
 [registry]
