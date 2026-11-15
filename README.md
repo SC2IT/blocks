@@ -1,5 +1,4 @@
 # blocks
-Rust clone of a famous blocky game
 
 ![screenshot](img/Blocks-Screenshot.png)
 
