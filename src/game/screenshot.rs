@@ -296,7 +296,7 @@ impl BlocksState {
                 self.setup_board();
                 self.fill_rows(3, &[".TTXX.S...", "...X..O..."]);
                 self.playfield
-                    .set_active(Rustomino::glitch(GlitchShape::Fat));
+                    .set_active(Rustomino::glitch(GlitchShape::Diamond));
                 for _ in 0..8 {
                     self.playfield.translate_active(TranslationDirection::Down);
                 }

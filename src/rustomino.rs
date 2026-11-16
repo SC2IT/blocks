@@ -406,25 +406,27 @@ const GLITCH_CHANCE_PER_LEVEL: f64 = 0.004;
 const GLITCH_CHANCE_MAX: f64 = 0.08;
 
 /// shapes a glitch piece can take, in a 3x3 box like J L S T Z
+/// four blocks like any piece, but joined at corners or broken by gaps
 #[derive(Debug, Clone, Copy, EnumIter, PartialEq, Eq)]
 pub enum GlitchShape {
-    Stub,    // three in a row
-    Bend,    // three in a corner
-    Fat,     // five, a square with a nub
-    Cup,     // five, a U
-    Split,   // four, two columns with a gap between
-    Shatter, // three, touching only at the corners
+    Split,   // two columns with a gap between
+    Diamond, // around a hollow center, joined at the corners
+    Corners, // the four corners of the box
+    Antlers, // a Y, two prongs on a stem
+    Kink,    // a short wiggle with a block off one corner
+    Hook,    // two pairs, offset by a gap
 }
 
 impl GlitchShape {
     fn blocks(self) -> Vec<IVec2> {
+        // y is up, row 2 is the top of the box
         let cells: &[(i32, i32)] = match self {
-            GlitchShape::Stub => &[(0, 1), (1, 1), (2, 1)],
-            GlitchShape::Bend => &[(0, 1), (1, 1), (0, 2)],
-            GlitchShape::Fat => &[(0, 1), (1, 1), (2, 1), (0, 2), (1, 2)],
-            GlitchShape::Cup => &[(0, 1), (1, 1), (2, 1), (0, 2), (2, 2)],
             GlitchShape::Split => &[(0, 1), (0, 2), (2, 1), (2, 2)],
-            GlitchShape::Shatter => &[(0, 1), (2, 1), (1, 2)],
+            GlitchShape::Diamond => &[(1, 2), (0, 1), (2, 1), (1, 0)],
+            GlitchShape::Corners => &[(0, 2), (2, 2), (0, 0), (2, 0)],
+            GlitchShape::Antlers => &[(0, 2), (2, 2), (1, 1), (1, 0)],
+            GlitchShape::Kink => &[(0, 2), (1, 1), (2, 1), (1, 0)],
+            GlitchShape::Hook => &[(0, 2), (1, 2), (1, 0), (2, 0)],
         };
         cells.iter().map(|&(x, y)| IVec2::new(x, y)).collect()
     }
@@ -443,7 +445,7 @@ pub struct Rustomino {
 impl Rustomino {
     pub fn new(rtype: RustominoType) -> Rustomino {
         if rtype == RustominoType::Glitch {
-            return Rustomino::glitch(GlitchShape::Stub);
+            return Rustomino::glitch(GlitchShape::Split);
         }
         let (rotation, blocks, translation) = {
             match rtype {
@@ -881,6 +883,27 @@ mod tests {
             let reset = piece.reset();
             assert_eq!(reset.glitch, Some(shape));
             assert_eq!(reset.blocks, shape.blocks());
+        }
+    }
+
+    #[test]
+    fn glitch_pieces_have_four_blocks_and_are_not_standard_shapes() {
+        for shape in GlitchShape::iter() {
+            let blocks = shape.blocks();
+            assert_eq!(blocks.len(), 4, "{shape:?}");
+            // flood fill along edges: a normal piece reaches all four blocks
+            let mut reached = vec![blocks[0]];
+            let mut i = 0;
+            while i < reached.len() {
+                let b = reached[i];
+                for o in &blocks {
+                    if (o.x - b.x).abs() + (o.y - b.y).abs() == 1 && !reached.contains(o) {
+                        reached.push(*o);
+                    }
+                }
+                i += 1;
+            }
+            assert!(reached.len() < 4, "{shape:?} is joined edge to edge");
         }
     }
 
