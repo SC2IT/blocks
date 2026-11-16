@@ -38,9 +38,8 @@ const SKIP_STEP: f32 = 1.0 / 60.0;
 const STORM_LEVELS: f32 = 11.0; // levels from calm to full storm, full at level 12
 const WHITEOUT_START: f32 = 10.0; // level the whiteout starts to creep in
 const WHITEOUT_LEVELS: f32 = 6.0; // levels from the first haze to a near whiteout
-const STORM_RUSH_WIND: f32 = 14.0; // extra cloud and gust speed at the height of a level up
-const STORM_RUSH_RAIN: f32 = 1.0; // extra rain speed at the height of a level up
 const STORM_RUSH_SEA: f32 = 2.0; // extra wave speed at the height of a level up
+const SEA_LEVEL_UP_RAMP: f32 = 4.0; // how quickly the sea follows the level during a level up, per second
 const STORM_RAMP: f32 = 0.4; // how quickly the storm follows the level, per second
 
 /// animated background shown behind the game
@@ -56,6 +55,7 @@ pub struct Background {
     thaw: Option<f32>,     // seconds since the thaw started
     pub twinkle: f32,      // star twinkle clock, runs while frozen
     pub storm: f32,        // storm strength, 0.0 calm to 1.0 at full, follows the level
+    pub sea_storm: f32,    // sea state, like storm but steps to the new level during a level up
     pub wind: f32,         // storm clocks, sped up by the storm so changes stay smooth
     pub rain: f32,
     pub sea: f32,
@@ -77,6 +77,7 @@ impl Background {
             thaw: None,
             twinkle: 0.0,
             storm: 0.0,
+            sea_storm: 0.0,
             wind: 0.0,
             rain: 0.0,
             sea: 0.0,
@@ -114,6 +115,13 @@ impl Background {
             .min(1.0)
             .powf(0.7);
         self.storm += (target - self.storm) * (dt * STORM_RAMP).min(1.0);
+        // the sea settles into the new level's state as the level up plays out
+        let sea_ramp = if self.level_up.is_some() {
+            SEA_LEVEL_UP_RAMP
+        } else {
+            STORM_RAMP
+        };
+        self.sea_storm += (target - self.sea_storm) * (dt * sea_ramp).min(1.0);
         let level = level.max(1) as f32;
         // creeps in slowly at first, then closes in
         let white = ((level - WHITEOUT_START + 1.0) / WHITEOUT_LEVELS)
@@ -121,10 +129,10 @@ impl Background {
             .powf(1.5);
         self.whiteout += (white - self.whiteout) * (dt * STORM_RAMP).min(1.0);
         let step = self.time - before;
-        // a level up rushes the whole storm past, like the star warp
+        // a level up heaves the sea
         let rush = self.rush();
-        self.wind += step * (1.0 + 3.0 * self.storm + STORM_RUSH_WIND * rush);
-        self.rain += step * (1.0 + 0.7 * self.storm + 0.5 * self.whiteout + STORM_RUSH_RAIN * rush);
+        self.wind += step * (1.0 + 3.0 * self.storm);
+        self.rain += step * (1.0 + 0.7 * self.storm + 0.5 * self.whiteout);
         self.sea += step * (1.0 + 0.9 * self.storm + STORM_RUSH_SEA * rush);
         self.bolt += step * (1.0 + 1.5 * self.storm);
         self.energy = (self.energy - SURGE_DECAY * dt).max(0.0);

@@ -249,6 +249,7 @@ impl BlocksState {
                 }
                 if matches!(scene, Scene::StormMax | Scene::StormWhiteout) {
                     self.background.storm = 1.0;
+                    self.background.sea_storm = 1.0;
                     self.background.wind = 40.0;
                     self.background.rain = 40.0;
                     self.background.sea = 40.0;

@@ -176,9 +176,7 @@ const LEVEL_UP_WHITE: f32 = 0.55; // brightest the sky gets at the opening flash
 const LEVEL_UP_BOLTS: usize = 6; // bolts in the level up barrage
 const LEVEL_UP_STAGGER: f32 = 0.11; // of the level up, between bolts
 const LEVEL_UP_BOLT_TIME: f32 = 0.22; // of the level up, how long each bolt lasts
-const LEVEL_UP_STRETCH: f32 = 1.2; // extra rain streak length at the height of a level up
-const LEVEL_UP_GUST: f32 = 0.25; // extra rain slant at the height of the level up
-const LEVEL_UP_SWELL: f32 = 2.0; // extra wave height at the height of the level up
+const LEVEL_UP_SWELL: f32 = 0.8; // extra heave as the sea steps up to the new level
 const SPLASHES: usize = 40;
 const CLOUD_BLOBS: usize = 26;
 const CLOUD_DRIFT: f32 = 0.012; // views per second
@@ -1426,8 +1424,7 @@ fn draw_storm(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background
     // three layers of rain, each falling into its own layer of sea:
     // far rain behind the back swell, near rain sweeping past in front
     let storm = background.storm;
-    let gust = GUST * storm * (0.5 + 0.5 * (background.wind * 0.35).sin())
-        + LEVEL_UP_GUST * background.rush();
+    let gust = GUST * storm * (0.5 + 0.5 * (background.wind * 0.35).sin());
     let whiteout = background.whiteout;
     let slant = RAIN_SLANT.0 + (RAIN_SLANT.1 - RAIN_SLANT.0) * storm + gust + 0.4 * whiteout;
     let drops = ((RAIN_DROPS.0 + ((RAIN_DROPS.1 - RAIN_DROPS.0) as f32 * storm) as usize) as f32
@@ -1436,10 +1433,12 @@ fn draw_storm(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background
         ((0.18 + 0.1 * storm + 0.15 * whiteout) + 0.12 * background.energy) * (1.0 + flash);
 
     // the sea, back layer to front, swelling with line clears and level ups
-    let swell = (1.0 + STORM_WAVES * storm)
+    // the sea follows the level on its own, stepping up as a level up plays out
+    let sea_storm = background.sea_storm;
+    let swell = (1.0 + STORM_WAVES * sea_storm)
         * (1.0 + SEA_SURGE * background.energy + LEVEL_UP_SWELL * background.rush());
     let sea = background.sea;
-    let foam_slope = FOAM_SLOPE * (1.0 - 0.45 * storm);
+    let foam_slope = FOAM_SLOPE * (1.0 - 0.45 * sea_storm);
     let lit = flash * 0.35;
     let columns = (w / SEA_STRIP).ceil() as usize + 1;
     let surface = |x: f32, layer: usize| {
@@ -1454,7 +1453,6 @@ fn draw_storm(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background
         clock: background.rain,
         storm,
         forward: (0.7 * storm + 0.3 * whiteout).min(1.0),
-        stretch: 1.0 + LEVEL_UP_STRETCH * background.rush(),
     };
     for (layer, (color, depth, height)) in SEA_LAYERS.iter().enumerate() {
         // rain for this depth falls first, so the swell in front hides where it lands
@@ -1510,7 +1508,7 @@ fn draw_storm(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background
             }
         }
         // wind tears spray off the crests in a strong storm
-        let spray = (SPRAY as f32 * smoothstep(0.2, 1.0, storm) * scale / 1.5) as usize;
+        let spray = (SPRAY as f32 * smoothstep(0.2, 1.0, sea_storm) * scale / 1.5) as usize;
         for i in 0..spray {
             let n = |k: f32| hash(i, k + 800.0 + layer as f32 * 70.0);
             let phase = (n(1.0) + background.wind * (0.25 + 0.2 * n(2.0))).fract();
@@ -1652,7 +1650,6 @@ struct RainView {
     clock: f32,
     storm: f32,
     forward: f32, // 0.0 rain spread into the distance to 1.0 crowded up front
-    stretch: f32, // streak length multiplier, long during a level up rush
 }
 
 /// one layer of rain, falling until it meets the surface below it
@@ -1677,8 +1674,8 @@ fn draw_rain_layer(
             + (n(2.0) + rain.clock * RAIN_FALL * speed * (0.9 + 0.2 * n(1.0))).fract() * fall;
         // spread wider upwind so slanted rain still covers the view
         let x = view.x + (n(3.0) * (1.3 + rain.slant) - 0.05) * view.w - (y - view.y) * rain.slant;
-        let len = (length * (0.8 + 0.4 * n(4.0)) * (1.0 + 0.5 * rain.storm) * rain.stretch)
-            .min(surface(x) + 2.0 - y);
+        let len =
+            (length * (0.8 + 0.4 * n(4.0)) * (1.0 + 0.5 * rain.storm)).min(surface(x) + 2.0 - y);
         if len <= 0.0 {
             continue;
         }
