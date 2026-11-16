@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Storm background: rain, wind and a three-layer sea under rolling clouds.
+  The storm builds with the level, reaching full strength at level 12, and
+  a whiteout of rain and mist creeps in from level 10.
+- Five kinds of lightning: forked, double, sheet, crawling and distant, with
+  a glow along each bolt. Line clears light up the clouds.
+- Storms, a dark 3/4 waltz music theme, with a loop option and a length
+  check in `tools/make_chiptune.py`.
+- Audio option to keep the music playing when the window loses focus.
+- `storm`, `storm-max`, `storm-whiteout` and `options-audio` screenshot scenes.
+
+### Changed
+
+- Song, Music and Sound moved to a new Audio page in the options.
+
 ## [0.5.1] - 2026-11-15
 
 ### Changed

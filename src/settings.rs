@@ -38,6 +38,7 @@ pub struct Settings {
     pub board: String,
     pub music_level: u8,
     pub sound_level: u8,
+    pub play_unfocused: bool, // keep the music playing when the window loses focus
     pub initials: String,
     pub window: WindowState,
 }
@@ -52,6 +53,7 @@ impl Default for Settings {
             board: String::new(),
             music_level: crate::game::DEFAULT_VOLUME_LEVEL,
             sound_level: crate::game::DEFAULT_VOLUME_LEVEL,
+            play_unfocused: false,
             initials: String::new(),
             window: WindowState::default(),
         }
@@ -130,6 +132,7 @@ mod tests {
             board: "Dots".into(),
             music_level: 3,
             sound_level: 7,
+            play_unfocused: true,
             initials: "ABC".into(),
             window: WindowState {
                 width: 1280.0,
@@ -148,6 +151,8 @@ mod tests {
         let settings: Settings = toml::from_str("music_level = 2").unwrap();
         assert_eq!(settings.music_level, 2);
         assert_eq!(settings.sound_level, 5);
+        // older settings files keep the music focus only
+        assert!(!settings.play_unfocused);
         assert_eq!(settings.window, WindowState::default());
     }
 }

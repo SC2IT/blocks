@@ -2,13 +2,15 @@
 pub enum BackgroundStyle {
     Stars,
     Plasma,
+    Storm,
     Off,
 }
 
 impl BackgroundStyle {
-    pub const ALL: [BackgroundStyle; 3] = [
+    pub const ALL: [BackgroundStyle; 4] = [
         BackgroundStyle::Stars,
         BackgroundStyle::Plasma,
+        BackgroundStyle::Storm,
         BackgroundStyle::Off,
     ];
 
@@ -16,6 +18,7 @@ impl BackgroundStyle {
         match self {
             BackgroundStyle::Stars => "Stars",
             BackgroundStyle::Plasma => "Plasma",
+            BackgroundStyle::Storm => "Storm",
             BackgroundStyle::Off => "Off",
         }
     }
@@ -32,6 +35,10 @@ const RUSH_SPEED: f32 = 1.5; // extra speed at the rush peak
 pub const FREEZE_TIME: f32 = 2.5; // seconds to slow to a stop
 pub const THAW_TIME: f32 = 2.0; // seconds to thaw
 const SKIP_STEP: f32 = 1.0 / 60.0;
+const STORM_LEVELS: f32 = 11.0; // levels from calm to full storm, full at level 12
+const WHITEOUT_START: f32 = 10.0; // level the whiteout starts to creep in
+const WHITEOUT_LEVELS: f32 = 6.0; // levels from the first haze to a near whiteout
+const STORM_RAMP: f32 = 0.4; // how quickly the storm follows the level, per second
 
 /// animated background shown behind the game
 pub struct Background {
@@ -45,6 +52,12 @@ pub struct Background {
     frozen_at: f32,        // time at game over
     thaw: Option<f32>,     // seconds since the thaw started
     pub twinkle: f32,      // star twinkle clock, runs while frozen
+    pub storm: f32,        // storm strength, 0.0 calm to 1.0 at full, follows the level
+    pub wind: f32,         // storm clocks, sped up by the storm so changes stay smooth
+    pub rain: f32,
+    pub sea: f32,
+    pub bolt: f32,     // lightning clock, strikes come faster as the storm builds
+    pub whiteout: f32, // 0.0 to 1.0 past a full storm, rain and spray blot out the view
 }
 
 impl Background {
@@ -60,6 +73,12 @@ impl Background {
             frozen_at: 0.0,
             thaw: None,
             twinkle: 0.0,
+            storm: 0.0,
+            wind: 0.0,
+            rain: 0.0,
+            sea: 0.0,
+            bolt: 0.0,
+            whiteout: 0.0,
         }
     }
 
@@ -76,6 +95,7 @@ impl Background {
     pub fn update(&mut self, delta_time: f64, level: usize) {
         let dt = delta_time as f32;
         let speed = self.speed(level);
+        let before = self.time;
         self.time += dt
             * match (self.freeze, self.style) {
                 // plasma cells freeze one by one, see frozen_time
@@ -85,6 +105,23 @@ impl Background {
                 (None, _) => speed,
             };
         self.twinkle += dt * speed;
+        // the storm builds with the level, wind, rain and sea speed up with it
+        // front loaded: most of the build comes in the first few levels
+        let target = ((level.max(1) - 1) as f32 / STORM_LEVELS)
+            .min(1.0)
+            .powf(0.7);
+        self.storm += (target - self.storm) * (dt * STORM_RAMP).min(1.0);
+        let level = level.max(1) as f32;
+        // creeps in slowly at first, then closes in
+        let white = ((level - WHITEOUT_START + 1.0) / WHITEOUT_LEVELS)
+            .clamp(0.0, 1.0)
+            .powf(1.5);
+        self.whiteout += (white - self.whiteout) * (dt * STORM_RAMP).min(1.0);
+        let step = self.time - before;
+        self.wind += step * (1.0 + 3.0 * self.storm);
+        self.rain += step * (1.0 + 0.7 * self.storm + 0.5 * self.whiteout);
+        self.sea += step * (1.0 + 0.9 * self.storm);
+        self.bolt += step * (1.0 + 1.5 * self.storm);
         self.energy = (self.energy - SURGE_DECAY * dt).max(0.0);
         self.level_up = self.level_up.map(|t| t + dt).filter(|t| *t < LEVEL_UP_TIME);
         match self.thaw {

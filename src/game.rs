@@ -56,11 +56,12 @@ const HARD_DROP_SCORE: usize = 2; // per row
 
 // ASSET CONSTANTS
 // made by tools/make_chiptune.py
-const MUSIC_THEMES: [(&str, &str); 4] = [
+const MUSIC_THEMES: [(&str, &str); 5] = [
     ("Dance", "/music_dance.ogg"),
     ("Bounce", "/music_bounce.ogg"),
     ("Baroque", "/music_baroque.ogg"),
     ("Nocturne", "/music_nocturne.ogg"),
+    ("Storms", "/music_storms.ogg"),
 ];
 const VOLUME_LEVELS: u8 = 10; // steps on the options volume sliders
 pub const DEFAULT_VOLUME_LEVEL: u8 = 5;
@@ -294,6 +295,9 @@ pub struct BlocksState {
     menu_state: menus::MenuList,
     paused_state: menus::MenuList,
     options_state: menus::MenuList,
+    audio_state: menus::MenuList,
+    audio_open: bool,     // the audio page of the options
+    play_unfocused: bool, // music keeps playing when the window loses focus
     view_settings: draw::ViewSettings,
     meshes: draw::Meshes,
     rustomino_bag: RustominoBag,
@@ -396,6 +400,9 @@ impl BlocksState {
             menu_state: menus::MenuList::main(),
             paused_state: menus::MenuList::paused(),
             options_state: menus::MenuList::options(),
+            audio_state: menus::MenuList::audio(),
+            audio_open: false,
+            play_unfocused: false,
             view_settings: draw::ViewSettings::new(width, height),
             meshes: draw::Meshes::new(ctx)?,
             score: 0,
@@ -1032,18 +1039,20 @@ impl BlocksState {
                     self.draw_game(ctx, canvas)?;
                     draw::draw_overlay(canvas, &self.meshes, &self.view_settings.view_rect);
                 }
+                let (title, menu) = if self.audio_open {
+                    ("Audio", &self.audio_state)
+                } else {
+                    ("Options", &self.options_state)
+                };
                 draw::draw_options(
                     ctx,
                     canvas,
                     &self.meshes,
-                    &self.options_state,
+                    title,
+                    menu,
+                    &self.option_rows(),
                     self.mode,
-                    self.options_in_game(),
-                    MUSIC_THEMES[self.assets.theme].0,
-                    self.background.style.name(),
                     &self.style,
-                    self.music_level,
-                    self.sound_level,
                     VOLUME_LEVELS,
                     &self.view_settings,
                 )?;
@@ -1178,17 +1187,33 @@ impl BlocksState {
     /// change the selected option's setting
     fn adjust_option(&mut self, delta: i8) {
         let step = |level: u8| (level as i8 + delta).clamp(0, VOLUME_LEVELS as i8) as u8;
+        if self.audio_open {
+            match self.audio_state.selected() {
+                menus::AUDIO_THEME => {
+                    let count = MUSIC_THEMES.len() as isize;
+                    let theme = (self.assets.theme as isize + delta as isize).rem_euclid(count);
+                    self.assets
+                        .set_theme(theme as usize, self.screenshot.is_none());
+                    return;
+                }
+                menus::AUDIO_MUSIC => {
+                    self.music_level = step(self.music_level);
+                    self.assets.set_music_level(self.music_level);
+                }
+                menus::AUDIO_SOUND => {
+                    self.sound_level = step(self.sound_level);
+                    self.assets.set_sound_level(self.sound_level);
+                }
+                menus::AUDIO_UNFOCUSED => self.play_unfocused = !self.play_unfocused,
+                _ => return,
+            }
+            self.assets.play(Sfx::MenuMove);
+            return;
+        }
         match self.options_state.selected() {
             // locked during a game
             menus::OPTION_MODE if self.options_in_game() => return,
             menus::OPTION_MODE => self.mode = style::cycle(&Mode::ALL, self.mode, delta as isize),
-            menus::OPTION_THEME => {
-                let count = MUSIC_THEMES.len() as isize;
-                let theme = (self.assets.theme as isize + delta as isize).rem_euclid(count);
-                self.assets
-                    .set_theme(theme as usize, self.screenshot.is_none());
-                return;
-            }
             menus::OPTION_BACKGROUND => self.background.cycle(delta as isize),
             menus::OPTION_BLOCKS => {
                 self.style.block = style::cycle(&BlockStyle::ALL, self.style.block, delta as isize)
@@ -1196,17 +1221,49 @@ impl BlocksState {
             menus::OPTION_BOARD => {
                 self.style.board = style::cycle(&BoardStyle::ALL, self.style.board, delta as isize)
             }
-            menus::OPTION_MUSIC => {
-                self.music_level = step(self.music_level);
-                self.assets.set_music_level(self.music_level);
-            }
-            menus::OPTION_SOUND => {
-                self.sound_level = step(self.sound_level);
-                self.assets.set_sound_level(self.sound_level);
+            menus::OPTION_AUDIO if delta > 0 => {
+                self.open_audio();
+                return;
             }
             _ => return,
         }
         self.assets.play(Sfx::MenuMove);
+    }
+
+    fn open_audio(&mut self) {
+        self.audio_open = true;
+        self.audio_state.reset_selection();
+        self.assets.play(Sfx::MenuSelect);
+    }
+
+    /// back from the audio page to the options, on the audio row
+    fn close_audio(&mut self) {
+        self.audio_open = false;
+        self.assets.play(Sfx::MenuSelect);
+    }
+
+    /// rows of the options page that is showing
+    fn option_rows(&self) -> Vec<draw::OptionRow<'_>> {
+        use draw::OptionRow;
+        if self.audio_open {
+            vec![
+                OptionRow::Choice(MUSIC_THEMES[self.assets.theme].0, false),
+                OptionRow::Slider(self.music_level),
+                OptionRow::Slider(self.sound_level),
+                OptionRow::Choice(if self.play_unfocused { "Play" } else { "Pause" }, false),
+                OptionRow::Back,
+            ]
+        } else {
+            vec![
+                OptionRow::Choice(self.mode.name(), self.options_in_game()),
+                OptionRow::Choice(self.background.style.name(), false),
+                OptionRow::Choice(self.style.block.name(), false),
+                OptionRow::Choice(self.style.board.name(), false),
+                // opens the audio page
+                OptionRow::Link,
+                OptionRow::Back,
+            ]
+        }
     }
 
     /// apply saved options
@@ -1235,6 +1292,7 @@ impl BlocksState {
         if let Some(board) = style::from_name(&BoardStyle::ALL, &settings.board, BoardStyle::name) {
             self.style.board = board;
         }
+        self.play_unfocused = settings.play_unfocused;
         self.music_level = settings.music_level.min(VOLUME_LEVELS);
         self.sound_level = settings.sound_level.min(VOLUME_LEVELS);
         self.assets.set_music_level(self.music_level);
@@ -1254,6 +1312,7 @@ impl BlocksState {
         settings.board = self.style.board.name().to_string();
         settings.music_level = self.music_level;
         settings.sound_level = self.sound_level;
+        settings.play_unfocused = self.play_unfocused;
         settings.save();
     }
 
@@ -1283,6 +1342,7 @@ impl BlocksState {
         self.save_settings();
         self.assets.play(Sfx::MenuSelect);
         self.options_state.reset_selection();
+        self.audio_open = false;
         self.set_state(self.previous_state);
     }
 
@@ -1305,7 +1365,7 @@ impl EventHandler for BlocksState {
         }
 
         // loop the music, rodio 0.22 repeat is silent for vorbis
-        if self.focused && self.assets.music().stopped() {
+        if (self.focused || self.play_unfocused) && self.assets.music().stopped() {
             self.assets.music().play();
         }
 
@@ -1458,14 +1518,32 @@ impl EventHandler for BlocksState {
             GameState::Options => {
                 let enter =
                     keycode == Some(KeyCode::Enter) || keycode == Some(KeyCode::NumpadEnter);
-                let on_back = self.options_state.selected() == menus::OPTION_BACK;
-                if (keycode == Some(KeyCode::Escape) || (enter && on_back)) && !repeated {
-                    self.close_options();
+                let escape = keycode == Some(KeyCode::Escape);
+                let (menu, back) = if self.audio_open {
+                    (&mut self.audio_state, menus::AUDIO_BACK)
+                } else {
+                    (&mut self.options_state, menus::OPTION_BACK)
+                };
+                let on_back = menu.selected() == back;
+                let on_audio = !self.audio_open && menu.selected() == menus::OPTION_AUDIO;
+                if (escape || (enter && on_back)) && !repeated {
+                    if self.audio_open {
+                        self.close_audio();
+                    } else {
+                        self.close_options();
+                    }
+                } else if enter && on_audio && !repeated {
+                    self.open_audio();
+                } else if enter && self.audio_open && !repeated {
+                    // enter flips on/off settings too
+                    if self.audio_state.selected() == menus::AUDIO_UNFOCUSED {
+                        self.adjust_option(1);
+                    }
                 } else if keycode == Some(KeyCode::ArrowUp) && !repeated {
-                    self.options_state.previous();
+                    menu.previous();
                     self.assets.play(Sfx::MenuMove);
                 } else if keycode == Some(KeyCode::ArrowDown) && !repeated {
-                    self.options_state.next();
+                    menu.next();
                     self.assets.play(Sfx::MenuMove);
                 } else if keycode == Some(KeyCode::ArrowLeft) {
                     self.adjust_option(-1);
@@ -1547,10 +1625,13 @@ impl EventHandler for BlocksState {
             return Ok(());
         }
         self.focused = gained;
+        // music and the game over jingle stop while unfocused, unless set to keep playing
         if gained {
             self.assets.unsuspend();
         } else {
-            self.assets.suspend();
+            if !self.play_unfocused {
+                self.assets.suspend();
+            }
             if self.state == GameState::Playing {
                 self.pause();
             }

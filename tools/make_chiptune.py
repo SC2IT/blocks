@@ -318,6 +318,52 @@ SONGS = {
             """), None),
         },
     },
+    # dark stormy waltz, A minor, 3/4, with folk-dance motifs in the B section
+    "storms": {
+        "bpm": 128, "bar": 6, "intro": 0, "bass": None, "drums": "minuet", "drum_volume": 0.7,
+        "staccato": 0.95, "echo": (3, 0.3), "loop": True, "length": (60, 180),
+        "sections": [("A", 0.25, False), ("B", 0.5, False), ("A", 0.25, True)],
+        "parts": {
+            "A": (None, phrase("""
+                E4:2 A4:2 C5:2 B4:4 A4:2
+                G#4:4 E4:2 A4:6
+                C5:2 B4:2 A4:2 E5:4 D5:2
+                C5:2 B4:2 A4:2 B4:6
+                F4:2 A4:2 D5:2 C5:4 B4:2
+                A4:2 G4:2 F4:2 E4:6
+                A4:2 C5:2 E5:2 F5:4 E5:2
+                D5:2 B4:2 G#4:2 A4:6
+            """), phrase("""
+                A2:2 E3:2 A3:2 E2:2 B2:2 E3:2
+                E2:2 B2:2 E3:2 A2:2 E3:2 A3:2
+                A2:2 E3:2 A3:2 C3:2 G3:2 C3:2
+                A2:2 E3:2 A3:2 E2:2 B2:2 E3:2
+                D3:2 A2:2 D3:2 F2:2 C3:2 F3:2
+                D3:2 A2:2 D3:2 E2:2 B2:2 E3:2
+                A2:2 E3:2 A3:2 D3:2 A2:2 D3:2
+                E2:2 B2:2 E3:2 A2:2 E3:2 A3:2
+            """)),
+            "B": (None, phrase("""
+                E5:4 B4:2 C5:2 D5:2 C5:2
+                B4:2 A4:4 A4:2 C5:2 E5:2
+                D5:2 C5:2 B4:2 C5:2 D5:4
+                E5:2 C5:2 A4:2 A4:6
+                D5:4 F5:2 A5:4 G5:2
+                F5:2 E5:4 C5:2 E5:2 D5:2
+                C5:2 B4:4 B4:2 C5:2 D5:2
+                E5:2 C5:2 G#4:2 A4:6
+            """), phrase("""
+                E2:2 B2:2 E3:2 A2:2 E3:2 A3:2
+                A2:2 E3:2 A3:2 A2:2 E3:2 A3:2
+                E2:2 B2:2 E3:2 C3:2 G3:2 C3:2
+                A2:2 E3:2 A3:2 A2:2 E3:2 A3:2
+                D3:2 A2:2 D3:2 F2:2 C3:2 F3:2
+                D3:2 A2:2 D3:2 A2:2 E3:2 A3:2
+                E2:2 B2:2 E3:2 E2:2 B2:2 E3:2
+                E2:2 B2:2 E3:2 A2:2 E3:2 A3:2
+            """)),
+        },
+    },
 }
 
 
@@ -354,7 +400,7 @@ def render(song):
     parts = song["parts"]
     bars = song["intro"] + sum(len(parts[name][1]) and bar_count(parts[name][1], bar) for name, _, _ in song["sections"])
     total = bars * bar
-    track = array.array("f", [0.0] * (int(total * eighth * RATE) + RATE))
+    track = array.array("f", [0.0] * (int(total * eighth * RATE) + 4 * RATE))
 
     def length(eighths):
         return int(round(eighths * eighth * RATE))
@@ -419,13 +465,21 @@ def render(song):
                 add(at, pulse(freq_midi(m - 12), n, 0.125, 0.16))
             if song["echo"]:
                 delay, volume = song["echo"]
-                if at + delay < total:
+                if song.get("loop"):
+                    # let the echo run past the end; it is folded onto the start below
+                    add(at + delay, pulse(freq_midi(m), n, duty, 0.32 * volume))
+                elif at + delay < total:
                     add(at + delay, pulse(freq_midi(m), min(n, length(total - at - delay) - 1), duty, 0.32 * volume))
 
         play_line(position, melody, lead)
         position += section_bars * bar
 
-    return track[: length(total)]
+    end = length(total)
+    if song.get("loop"):
+        # seamless loop: wrap every tail that rings past the end back onto the start
+        for i in range(end, len(track)):
+            track[(i - end) % end] += track[i]
+    return track[:end]
 
 
 def bar_count(melody, bar):
@@ -494,7 +548,12 @@ def main():
         if name in JINGLES:
             write(JINGLES[name]["file"], render_jingle(JINGLES[name]), JINGLES[name]["level"])
         else:
-            write(f"music_{name}.ogg", render(SONGS[name]))
+            track = render(SONGS[name])
+            if "length" in SONGS[name]:
+                low, high = SONGS[name]["length"]
+                seconds = len(track) / RATE
+                assert low <= seconds <= high, f"{name} is {seconds:.1f}s, outside {low}-{high}s"
+            write(f"music_{name}.ogg", track)
 
 
 if __name__ == "__main__":
