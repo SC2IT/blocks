@@ -117,6 +117,7 @@ DRUM_PATTERNS = {
     "march": {"kick": [0, 4], "snare": [2, 6, 7], "hat": [1, 3, 5]},
     "minuet": {"kick": [0], "snare": [], "hat": [2, 4]},
     "halftime": {"kick": [0, 5], "snare": [4], "hat": [0, 1, 2, 3, 4, 5, 6, 7]},
+    "jig": {"kick": [0, 3], "snare": [3], "hat": [1, 2, 4, 5]},
 }
 
 
@@ -362,6 +363,47 @@ SONGS = {
                 E2:2 B2:2 E3:2 E2:2 B2:2 E3:2
                 E2:2 B2:2 E3:2 A2:2 E3:2 A3:2
             """)),
+        },
+    },
+    # rolling 6/8 sea shanty, D minor, with folk-dance motifs in the bridge
+    "shanty": {
+        "bpm": 140, "bar": 6, "intro": 1, "bass": "bounce", "drums": "jig", "drum_volume": 0.8,
+        "staccato": 0.85, "echo": (2, 0.25), "loop": True, "length": (60, 180),
+        "sections": [
+            ("A", 0.5, False), ("B", 0.25, False), ("C", 0.5, False),
+            ("A", 0.5, True), ("B", 0.25, True), ("C", 0.5, True),
+        ],
+        "parts": {
+            "A": (["Dm", "Dm", "F", "C", "Dm", "F", "C", "Dm"], phrase("""
+                D5:2 A4:1 D5:2 E5:1
+                F5:2 E5:1 D5:2 C5:1
+                A4:2 C5:1 D5:2 E5:1
+                F5:3 E5:3
+                D5:2 A4:1 D5:2 E5:1
+                F5:2 G5:1 A5:2 F5:1
+                E5:2 C5:1 E5:1 D5:1 C5:1
+                D5:6
+            """), None),
+            "B": (["Dm", "A", "Dm", "A", "Dm", "Dm", "Gm", "C"], phrase("""
+                A5:3 E5:2 F5:1
+                G5:2 F5:1 E5:3
+                D5:2 D5:1 F5:2 A5:1
+                G5:2 F5:1 E5:3
+                F5:2 G5:1 A5:3
+                F5:3 D5:3
+                G5:3 Bb5:2 D6:1
+                C6:2 Bb5:1 A5:3
+            """), None),
+            "C": (["F", "C", "Dm", "Dm", "Dm", "Dm", "C", "Dm"], phrase("""
+                F5:2 A5:1 G5:2 F5:1
+                E5:2 E5:1 F5:2 G5:1
+                A5:3 F5:3
+                D5:3 D5:3
+                A4:2 D5:1 D5:2 D5:1
+                D5:2 F5:1 A5:3
+                G5:2 E5:1 C5:2 E5:1
+                D5:6
+            """), None),
         },
     },
 }
