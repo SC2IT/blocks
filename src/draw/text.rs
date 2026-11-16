@@ -49,8 +49,12 @@ pub(super) fn draw_shadowed(canvas: &mut Canvas, text: &graphics::Text, pos: Vec
     let param = text_param();
     // the shadow fades with the text
     let shadow = with_alpha(TEXT_SHADOW_COLOR, TEXT_SHADOW_COLOR.a * color.a);
-    canvas.draw(text, param.dest(pos + Vec2::new(2.0, 2.0)).color(shadow));
-    canvas.draw(text, param.dest(pos).color(premultiply(color)));
+    draw(
+        canvas,
+        text,
+        param.dest(pos + Vec2::new(2.0, 2.0)).color(shadow),
+    );
+    draw(canvas, text, param.dest(pos).color(premultiply(color)));
 }
 
 /// text in the ui font with a drop shadow
@@ -108,11 +112,12 @@ pub(super) fn piece_colored_text_alpha(
 pub(super) fn draw_piece_colored(canvas: &mut Canvas, text: &str, pos: Vec2, size: f32) {
     let (text, shadow) = piece_colored_text(text, size);
     let param = text_param();
-    canvas.draw(
+    draw(
+        canvas,
         &shadow,
         param.dest(pos + Vec2::splat((size / 16.0).max(2.0))),
     );
-    canvas.draw(&text, param.dest(pos));
+    draw(canvas, &text, param.dest(pos));
 }
 
 /// large wobbling piece colored title

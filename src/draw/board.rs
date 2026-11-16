@@ -207,7 +207,7 @@ pub(super) fn draw_playfield(
                     .dest(Vec2::new(rect.x, rect.y))
                     .scale(Vec2::new(rect.w / BLOCK_SIZE, rect.h / BLOCK_SIZE))
                     .color(with_alpha(color, GHOST_OUTLINE_ALPHA));
-                canvas.draw(&meshes.rounded_outline, param);
+                draw_mesh(canvas, &meshes.rounded_outline, param);
             }
             return;
         }
@@ -614,8 +614,8 @@ pub(super) fn draw_effects(
             let dims = text.measure_ui(ctx)?;
             let pos = center - Vec2::new(dims.x / 2.0, dims.y / 2.0);
             let param = text_param();
-            canvas.draw(&shadow, param.dest(pos + Vec2::splat(3.0)));
-            canvas.draw(&text, param.dest(pos));
+            draw(canvas, &shadow, param.dest(pos + Vec2::splat(3.0)));
+            draw(canvas, &text, param.dest(pos));
         } else {
             let color = with_alpha(LINE_CLEAR_COLOR, alpha);
             draw_text_centered(ctx, canvas, &ui_text(callout.text(), size), center, color)?;
@@ -659,12 +659,10 @@ impl Layer for GameLayer<'_> {
     fn draw(&self, canvas: &mut Canvas, frame: &Frame) -> GameResult {
         let screen = canvas.screen_coordinates();
         if let (Some(rect), Some(shake)) = (screen, self.shake) {
-            canvas.set_screen_coordinates(Rect::new(
-                rect.x - shake.x,
-                rect.y - shake.y,
-                rect.w,
-                rect.h,
-            ));
+            set_screen_coordinates(
+                canvas,
+                Rect::new(rect.x - shake.x, rect.y - shake.y, rect.w, rect.h),
+            );
         }
         draw_playing(
             canvas,
@@ -694,7 +692,7 @@ impl Layer for GameLayer<'_> {
             self.assists,
         )?;
         if let Some(rect) = screen {
-            canvas.set_screen_coordinates(rect);
+            set_screen_coordinates(canvas, rect);
         }
         Ok(())
     }

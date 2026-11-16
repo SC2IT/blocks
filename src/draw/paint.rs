@@ -16,7 +16,8 @@ pub(super) fn snap_line(start: f32) -> (f32, f32) {
 }
 
 pub(super) fn draw_rect(canvas: &mut Canvas, meshes: &Meshes, rect: Rect, color: Color) {
-    canvas.draw(
+    draw_mesh(
+        canvas,
         &meshes.rect,
         graphics::DrawParam::default().dest_rect(rect).color(color),
     );
@@ -64,7 +65,8 @@ pub(super) fn tint(color: Color, amount: f32) -> Color {
 }
 
 pub(super) fn draw_rounded(canvas: &mut Canvas, meshes: &Meshes, rect: Rect, color: Color) {
-    canvas.draw(
+    draw_mesh(
+        canvas,
         &meshes.rounded,
         graphics::DrawParam::default()
             .dest(Vec2::new(rect.x, rect.y))

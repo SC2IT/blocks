@@ -185,7 +185,8 @@ fn draw_storm(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background
                 * w;
         let y = view_rect.y + h * (0.02 + 0.22 * n(3.0));
         let radius = w * (0.12 + 0.1 * n(4.0));
-        canvas.draw(
+        draw_mesh(
+            canvas,
             &meshes.glow,
             graphics::DrawParam::default()
                 .dest(Vec2::new(x, y))
@@ -217,7 +218,7 @@ fn draw_storm(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background
     if let Some((k, bright, kind)) = strike {
         let cloud_base = view_rect.y + h * 0.18;
         let start_x = |seed: usize| x0 + w * (0.12 + 0.76 * hash(seed, 23.0));
-        canvas.set_blend_mode(graphics::BlendMode::ADD);
+        set_blend_mode(canvas, graphics::BlendMode::ADD);
         match kind {
             StrikeKind::Fork => {
                 draw_fork(
@@ -258,7 +259,8 @@ fn draw_storm(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background
                         x0 + w * (0.05 + 0.9 * hash(k * 13 + p, 32.0)),
                         view_rect.y + h * (0.05 + 0.18 * hash(k * 13 + p, 33.0)),
                     );
-                    canvas.draw(
+                    draw_mesh(
+                        canvas,
                         &meshes.glow,
                         graphics::DrawParam::default()
                             .dest(at)
@@ -324,7 +326,7 @@ fn draw_storm(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background
                 );
             }
         }
-        canvas.set_blend_mode(graphics::BlendMode::ALPHA);
+        set_blend_mode(canvas, graphics::BlendMode::ALPHA);
     }
 
     // three layers of rain, each falling into its own layer of sea:
@@ -462,7 +464,8 @@ pub(super) fn draw_whiteout(
                 * w;
         let y = view_rect.y + h * (0.1 + 0.85 * n(3.0));
         let size = w * (0.2 + 0.2 * n(4.0));
-        canvas.draw(
+        draw_mesh(
+            canvas,
             &meshes.glow,
             graphics::DrawParam::default()
                 .dest(Vec2::new(x, y))
@@ -492,7 +495,8 @@ pub(super) fn draw_whiteout(
         with_alpha(color, over_sea),
     );
     // soft edge so the sea fades in rather than starting at a line
-    canvas.draw(
+    draw_mesh(
+        canvas,
         &meshes.background,
         graphics::DrawParam::default()
             .dest_rect(Rect::new(x0, sea_top, w, -h * 0.12))
@@ -519,7 +523,7 @@ pub(super) fn draw_level_up_storm(
         *view_rect,
         with_alpha(Color::WHITE, LEVEL_UP_WHITE * flash),
     );
-    canvas.set_blend_mode(graphics::BlendMode::ADD);
+    set_blend_mode(canvas, graphics::BlendMode::ADD);
     let cloud_base = view_rect.y + h * 0.18;
     let seed = background.stars * 131;
     for b in 0..LEVEL_UP_BOLTS {
@@ -544,7 +548,7 @@ pub(super) fn draw_level_up_storm(
             bright,
         );
     }
-    canvas.set_blend_mode(graphics::BlendMode::ALPHA);
+    set_blend_mode(canvas, graphics::BlendMode::ALPHA);
 }
 
 /// what every rain layer shares
@@ -585,7 +589,8 @@ pub(super) fn draw_rain_layer(
         if len <= 0.0 {
             continue;
         }
-        canvas.draw(
+        draw_mesh(
+            canvas,
             &meshes.rect,
             graphics::DrawParam::default()
                 .dest(Vec2::new(x, y))
@@ -641,7 +646,8 @@ pub(super) fn draw_fork(
 ) {
     let from = Vec2::new(x, cloud_base);
     let to = Vec2::new(x + (hash(seed, 41.0) - 0.5) * w * 0.25, sea_top);
-    canvas.draw(
+    draw_mesh(
+        canvas,
         &meshes.glow,
         graphics::DrawParam::default()
             .dest(from)
@@ -678,7 +684,8 @@ pub(super) fn draw_fork(
         with_alpha(BOLT_COLOR, bright * 0.6),
     );
     // the strike lights up the water where it lands
-    canvas.draw(
+    draw_mesh(
+        canvas,
         &meshes.glow,
         graphics::DrawParam::default()
             .dest(to)
@@ -703,7 +710,8 @@ pub(super) fn draw_bolt_segment(
     let half = along.length() / 2.0;
     for (spread, strength) in BOLT_BLOOM {
         let width = size * spread;
-        canvas.draw(
+        draw_mesh(
+            canvas,
             &meshes.glow,
             graphics::DrawParam::default()
                 .dest(middle)

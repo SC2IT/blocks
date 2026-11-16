@@ -119,9 +119,10 @@ pub(super) fn draw_dropping_title(
         let alpha = (drop * 4.0).min(1.0);
         let text = ui_text(&letter.to_string(), size);
         let shadow = with_alpha(TEXT_SHADOW_COLOR, TEXT_SHADOW_COLOR.a * alpha);
-        canvas.draw(&text, param.dest(pos + shadow_offset).color(shadow));
+        draw(canvas, &text, param.dest(pos + shadow_offset).color(shadow));
         let color = tint(colors[i % colors.len()], TITLE_TINT);
-        canvas.draw(
+        draw(
+            canvas,
             &text,
             param.dest(pos).color(premultiply(with_alpha(color, alpha))),
         );

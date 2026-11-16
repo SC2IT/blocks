@@ -191,7 +191,7 @@ pub(super) fn draw_nebula(
     let view = Vec2::new(view_rect.w, view_rect.h);
     let span = view_rect.w.max(view_rect.h);
     let drift = background.time * NEBULA_DRIFT;
-    canvas.set_blend_mode(graphics::BlendMode::ADD);
+    set_blend_mode(canvas, graphics::BlendMode::ADD);
     for cloud in 0..NEBULA_CLOUDS {
         let n = |k: f32| hash(cloud, k + field as f32 * 10.0 + 500.0);
         let hue = NEBULA_COLORS[(n(1.0) * NEBULA_COLORS.len() as f32) as usize];
@@ -210,7 +210,8 @@ pub(super) fn draw_nebula(
             let stretch = 0.45 + 0.55 * m(5.0);
             let color = mix_color(hue, edge, m(6.0));
             let strength = NEBULA_ALPHA * (0.5 + 0.5 * m(7.0)) * alpha;
-            canvas.draw(
+            draw_mesh(
+                canvas,
                 &meshes.glow,
                 graphics::DrawParam::default()
                     .dest(pos)
@@ -220,7 +221,7 @@ pub(super) fn draw_nebula(
             );
         }
     }
-    canvas.set_blend_mode(graphics::BlendMode::ALPHA);
+    set_blend_mode(canvas, graphics::BlendMode::ALPHA);
 }
 
 /// a star streaking out from the center, head first, tail catching up

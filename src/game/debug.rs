@@ -1,4 +1,8 @@
 use std::cmp::Ordering;
+use std::fs::{self, File};
+use std::io::{BufWriter, Write};
+use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
 
 use ggez::input::keyboard::KeyCode;
 
@@ -6,6 +10,7 @@ use super::{gravity_delay, BlocksState, GameState, Sfx, LINES_PER_LEVEL};
 use crate::{
     background::{BackgroundStyle, FREEZE_TIME, LEVEL_UP_TIME, THAW_TIME},
     controls::Control,
+    draw,
     effects::Effects,
     level_progress::LevelProgress,
     playfield::{Playfield, TranslationDirection, PLAYFIELD_SLOTS},
@@ -27,6 +32,7 @@ const SURGES: usize = 4; // one per line clear size, then a level up
 const FREEZE_GAP: f64 = 0.7; // after the level up
 const FROZEN_HOLD: f64 = 1.5; // stopped before the thaw
 const THAW_GAP: f64 = 0.5; // after the thaw
+const STATS_WINDOW: Duration = Duration::from_millis(500); // frame stats averaged over
 /// time of background cue i, from 1
 fn background_cue(i: usize) -> f64 {
     let level_up = (SURGES + 1) as f64 * SURGE_GAP;
@@ -134,6 +140,173 @@ pub struct DebugView {
     step: f64,           // soft drop repeat
     surges: usize,       // background cues fired
     saved: Option<(ScoreBoard, Style, BackgroundStyle)>, // restored on close
+    pub stats: FrameStats,
+    pub recording: Option<Recording>, // frame samples going to a csv
+}
+
+/// one frame's drawing cost
+#[derive(Clone, Copy)]
+pub struct FrameSample {
+    pub draws: usize,
+    pub scene: Duration,    // building the draw list
+    pub encode: Duration,   // ggez turning it into gpu commands
+    pub gpu_wait: Duration, // blocked on the last frame's gpu work
+}
+
+/// frame samples averaged over a window, so the readout is steady
+#[derive(Default)]
+pub struct FrameStats {
+    pub shown: Option<draw::FrameStats>,
+    frames: u32,
+    draws: usize,
+    scene: Duration,
+    encode: Duration,
+    gpu_wait: Duration,
+    elapsed: Duration,
+}
+
+impl FrameStats {
+    pub fn record(&mut self, sample: FrameSample, delta: Duration) {
+        self.frames += 1;
+        self.draws += sample.draws;
+        self.scene += sample.scene;
+        self.encode += sample.encode;
+        self.gpu_wait += sample.gpu_wait;
+        self.elapsed += delta;
+        if self.elapsed < STATS_WINDOW {
+            return;
+        }
+        let ms = |total: Duration| total.as_secs_f32() * 1000.0 / self.frames as f32;
+        self.shown = Some(draw::FrameStats {
+            draws: self.draws / self.frames as usize,
+            scene_ms: ms(self.scene),
+            encode_ms: ms(self.encode),
+            gpu_wait_ms: ms(self.gpu_wait),
+        });
+        *self = Self {
+            shown: self.shown,
+            ..Self::default()
+        };
+    }
+}
+
+// bump when the columns change, so old recordings aren't compared wrongly
+const RECORDING_VERSION: u32 = 1;
+const RECORDING_COLUMNS: &str = "frame,time_ms,frame_ms,animation,background,block,board,level,fps_cap,draws,scene_ms,encode_ms,gpu_wait_ms";
+
+/// what a recording was made on, written at the top so runs can be compared
+pub struct RunInfo {
+    pub drawable: (f32, f32), // physical pixels
+    pub scale: f32,           // physical pixels per view unit
+    pub fps_cap: u32,
+}
+
+/// where a frame was drawn, so rows of the same scene line up across runs
+pub struct Scene {
+    pub animation: &'static str,
+    pub background: &'static str,
+    pub block: &'static str,
+    pub board: &'static str,
+    pub level: usize,
+    pub fps_cap: u32,
+}
+
+/// a recorded frame, formatted only when the recording is saved
+struct RecordedFrame {
+    scene: Scene,
+    sample: FrameSample,
+    delta: Duration,
+}
+
+/// frame samples kept in memory, written to a csv when the recording stops
+/// so no file io lands between the frames being measured
+pub struct Recording {
+    run: RunInfo,
+    started: u64, // unix seconds, names the file
+    frames: Vec<RecordedFrame>,
+}
+
+impl Recording {
+    pub fn start(run: RunInfo) -> Self {
+        let started = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        // a minute at the cap up front, so growing rarely copies mid recording
+        let frames = Vec::with_capacity(run.fps_cap as usize * 60);
+        Self {
+            run,
+            started,
+            frames,
+        }
+    }
+
+    pub fn record(&mut self, scene: Scene, sample: FrameSample, delta: Duration) {
+        self.frames.push(RecordedFrame {
+            scene,
+            sample,
+            delta,
+        });
+    }
+
+    /// write the csv, returns where
+    pub fn finish(self) -> std::io::Result<PathBuf> {
+        let file = format!("frame-stats/frames-{}.csv", self.started);
+        let path = crate::settings::data_path(&file)
+            .ok_or_else(|| std::io::Error::other("no data directory"))?;
+        if let Some(dir) = path.parent() {
+            fs::create_dir_all(dir)?;
+        }
+        let mut out = BufWriter::new(File::create(&path)?);
+        let run = &self.run;
+        let profile = if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        };
+        writeln!(out, "# blocks frame stats v{RECORDING_VERSION}")?;
+        writeln!(out, "# version={}", env!("CARGO_PKG_VERSION"))?;
+        writeln!(out, "# commit={}", env!("BLOCKS_COMMIT"))?;
+        writeln!(out, "# profile={profile}")?;
+        writeln!(
+            out,
+            "# os={}-{}",
+            std::env::consts::OS,
+            std::env::consts::ARCH
+        )?;
+        writeln!(
+            out,
+            "# drawable={}x{} scale={}",
+            run.drawable.0, run.drawable.1, run.scale
+        )?;
+        writeln!(out, "# fps_cap={}", run.fps_cap)?;
+        writeln!(out, "{RECORDING_COLUMNS}")?;
+        let ms = |d: Duration| d.as_secs_f64() * 1000.0;
+        let mut time = Duration::ZERO;
+        for (i, frame) in self.frames.iter().enumerate() {
+            let (scene, sample) = (&frame.scene, &frame.sample);
+            time += frame.delta;
+            writeln!(
+                out,
+                "{},{:.3},{:.3},{},{},{},{},{},{},{},{:.4},{:.4},{:.4}",
+                i,
+                ms(time),
+                ms(frame.delta),
+                scene.animation,
+                scene.background,
+                scene.block,
+                scene.board,
+                scene.level,
+                scene.fps_cap,
+                sample.draws,
+                ms(sample.scene),
+                ms(sample.encode),
+                ms(sample.gpu_wait),
+            )?;
+        }
+        out.flush()?;
+        Ok(path)
+    }
 }
 
 impl DebugView {
@@ -152,6 +325,8 @@ impl DebugView {
             step: 0.0,
             surges: 0,
             saved: None,
+            stats: FrameStats::default(),
+            recording: None,
         }
     }
 
@@ -173,11 +348,46 @@ impl BlocksState {
     pub(super) fn open_debug(&mut self) {
         let scores = std::mem::take(&mut self.scores);
         self.debug.saved = Some((scores, self.style, self.background.style));
+        // no stale numbers from the last visit
+        self.debug.stats = FrameStats::default();
         self.set_state(GameState::Debug);
         self.start_animation();
     }
 
+    /// start or stop writing frame samples to a csv
+    fn toggle_recording(&mut self, run: RunInfo) {
+        match self.debug.recording.take() {
+            Some(recording) => self.stop_recording(recording),
+            None => self.debug.recording = Some(Recording::start(run)),
+        }
+    }
+
+    fn stop_recording(&mut self, recording: Recording) {
+        match recording.finish() {
+            Ok(path) => println!("frame stats saved to {}", path.display()),
+            Err(e) => log::error!("could not save the frame stats recording: {e}"),
+        }
+    }
+
+    /// row for the recording, if one is running
+    pub(super) fn record_frame(&mut self, sample: FrameSample, delta: Duration) {
+        let scene = Scene {
+            animation: self.debug.animation().name(),
+            background: self.background.style.name(),
+            block: self.style.block.name(),
+            board: self.style.board.name(),
+            level: self.debug.level,
+            fps_cap: self.debug.fps(),
+        };
+        if let Some(recording) = self.debug.recording.as_mut() {
+            recording.record(scene, sample, delta);
+        }
+    }
+
     fn close_debug(&mut self) {
+        if let Some(recording) = self.debug.recording.take() {
+            self.stop_recording(recording);
+        }
         if let Some((scores, style, background)) = self.debug.saved.take() {
             self.scores = scores;
             self.style = style;
@@ -397,6 +607,15 @@ impl BlocksState {
             KeyCode::KeyP if !repeated => self.debug.paused = !self.debug.paused,
             KeyCode::KeyR if !repeated => self.debug.replay = !self.debug.replay,
             KeyCode::KeyH if !repeated => self.debug.hidden = !self.debug.hidden,
+            KeyCode::KeyC if !repeated => {
+                let view = &self.view_settings;
+                let run = RunInfo {
+                    drawable: (view.view_rect.w * view.scale, view.view_rect.h * view.scale),
+                    scale: view.scale,
+                    fps_cap: self.debug.fps(),
+                };
+                self.toggle_recording(run);
+            }
             KeyCode::KeyF if !repeated => {
                 let count = FPS.len();
                 self.debug.fps = if shift {

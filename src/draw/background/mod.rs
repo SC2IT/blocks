@@ -93,7 +93,8 @@ fn paint<S: Scenery>(
 ) {
     let (top, bottom) = S::COLORS;
     draw_rect(canvas, meshes, *view_rect, bottom);
-    canvas.draw(
+    draw_mesh(
+        canvas,
         &meshes.background,
         graphics::DrawParam::default()
             .dest_rect(*view_rect)
