@@ -56,12 +56,13 @@ const HARD_DROP_SCORE: usize = 2; // per row
 
 // ASSET CONSTANTS
 // made by tools/make_chiptune.py
-const MUSIC_THEMES: [(&str, &str); 5] = [
+const MUSIC_THEMES: [(&str, &str); 6] = [
     ("Dance", "/music_dance.ogg"),
     ("Bounce", "/music_bounce.ogg"),
     ("Baroque", "/music_baroque.ogg"),
     ("Nocturne", "/music_nocturne.ogg"),
     ("Storms", "/music_storms.ogg"),
+    ("Shanty", "/music_shanty.ogg"),
 ];
 const VOLUME_LEVELS: u8 = 10; // steps on the options volume sliders
 pub const DEFAULT_VOLUME_LEVEL: u8 = 5;
