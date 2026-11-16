@@ -22,3 +22,8 @@ rodio = { version = "=0.22.2", default-features = false, features = ["tracing"] 
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "=0.1.12"
+
+# unreleased fix: 0.10.0 spins forever when the window is occluded on macOS
+# (minimized, covered, hidden), drop when ggez releases it
+[patch.crates-io]
+ggez = { git = "https://github.com/ggez/ggez", rev = "3049a29234961845bc5dc642614bf3e85ba4ea14" }

@@ -2,15 +2,14 @@
 
 Blocks is built with the following open source crates.
 
-- [MIT License](#MIT) (232)
-- [Apache License 2.0](#Apache-2.0) (17)
+- [MIT License](#MIT) (234)
+- [Apache License 2.0](#Apache-2.0) (18)
 - [Mozilla Public License 2.0](#MPL-2.0) (11)
 - [BSD 3-Clause "New" or "Revised" License](#BSD-3-Clause) (4)
-- [zlib License](#Zlib) (2)
 - [BSD 2-Clause "Simplified" License](#BSD-2-Clause) (1)
-- [Creative Commons Zero v1.0 Universal](#CC0-1.0) (1)
 - [ISC License](#ISC) (1)
 - [Unicode License v3](#Unicode-3.0) (1)
+- [zlib License](#Zlib) (1)
 
 ## <a id="Apache-2.0"></a>Apache License 2.0
 
@@ -1287,6 +1286,7 @@ Used by:
 
 - [ab_glyph 0.2.32](https://github.com/alexheretic/ab-glyph)
 - [ab_glyph_rasterizer 0.1.10](https://github.com/alexheretic/ab-glyph)
+- [constant_time_eq 0.6.1](https://codeberg.org/cesarb/constant_time_eq)
 - [glyph_brush 0.7.12](https://github.com/alexheretic/glyph-brush)
 - [glyph_brush_draw_cache 0.1.6](https://github.com/alexheretic/glyph-brush)
 - [glyph_brush_layout 0.2.4](https://github.com/alexheretic/glyph-brush)
@@ -1545,137 +1545,6 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-```
-
-## <a id="CC0-1.0"></a>Creative Commons Zero v1.0 Universal
-
-Used by:
-
-- [hexf-parse 0.2.1](https://github.com/lifthrasiir/hexf)
-
-```
-Creative Commons Legal Code
-
-CC0 1.0 Universal
-
-    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE
-    LEGAL SERVICES. DISTRIBUTION OF THIS DOCUMENT DOES NOT CREATE AN
-    ATTORNEY-CLIENT RELATIONSHIP. CREATIVE COMMONS PROVIDES THIS
-    INFORMATION ON AN "AS-IS" BASIS. CREATIVE COMMONS MAKES NO WARRANTIES
-    REGARDING THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS
-    PROVIDED HEREUNDER, AND DISCLAIMS LIABILITY FOR DAMAGES RESULTING FROM
-    THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS PROVIDED
-    HEREUNDER.
-
-Statement of Purpose
-
-The laws of most jurisdictions throughout the world automatically confer
-exclusive Copyright and Related Rights (defined below) upon the creator
-and subsequent owner(s) (each and all, an "owner") of an original work of
-authorship and/or a database (each, a "Work").
-
-Certain owners wish to permanently relinquish those rights to a Work for
-the purpose of contributing to a commons of creative, cultural and
-scientific works ("Commons") that the public can reliably and without fear
-of later claims of infringement build upon, modify, incorporate in other
-works, reuse and redistribute as freely as possible in any form whatsoever
-and for any purposes, including without limitation commercial purposes.
-These owners may contribute to the Commons to promote the ideal of a free
-culture and the further production of creative, cultural and scientific
-works, or to gain reputation or greater distribution for their Work in
-part through the use and efforts of others.
-
-For these and/or other purposes and motivations, and without any
-expectation of additional consideration or compensation, the person
-associating CC0 with a Work (the "Affirmer"), to the extent that he or she
-is an owner of Copyright and Related Rights in the Work, voluntarily
-elects to apply CC0 to the Work and publicly distribute the Work under its
-terms, with knowledge of his or her Copyright and Related Rights in the
-Work and the meaning and intended legal effect of CC0 on those rights.
-
-1. Copyright and Related Rights. A Work made available under CC0 may be
-protected by copyright and related or neighboring rights ("Copyright and
-Related Rights"). Copyright and Related Rights include, but are not
-limited to, the following:
-
-  i. the right to reproduce, adapt, distribute, perform, display,
-     communicate, and translate a Work;
- ii. moral rights retained by the original author(s) and/or performer(s);
-iii. publicity and privacy rights pertaining to a person's image or
-     likeness depicted in a Work;
- iv. rights protecting against unfair competition in regards to a Work,
-     subject to the limitations in paragraph 4(a), below;
-  v. rights protecting the extraction, dissemination, use and reuse of data
-     in a Work;
- vi. database rights (such as those arising under Directive 96/9/EC of the
-     European Parliament and of the Council of 11 March 1996 on the legal
-     protection of databases, and under any national implementation
-     thereof, including any amended or successor version of such
-     directive); and
-vii. other similar, equivalent or corresponding rights throughout the
-     world based on applicable law or treaty, and any national
-     implementations thereof.
-
-2. Waiver. To the greatest extent permitted by, but not in contravention
-of, applicable law, Affirmer hereby overtly, fully, permanently,
-irrevocably and unconditionally waives, abandons, and surrenders all of
-Affirmer's Copyright and Related Rights and associated claims and causes
-of action, whether now known or unknown (including existing as well as
-future claims and causes of action), in the Work (i) in all territories
-worldwide, (ii) for the maximum duration provided by applicable law or
-treaty (including future time extensions), (iii) in any current or future
-medium and for any number of copies, and (iv) for any purpose whatsoever,
-including without limitation commercial, advertising or promotional
-purposes (the "Waiver"). Affirmer makes the Waiver for the benefit of each
-member of the public at large and to the detriment of Affirmer's heirs and
-successors, fully intending that such Waiver shall not be subject to
-revocation, rescission, cancellation, termination, or any other legal or
-equitable action to disrupt the quiet enjoyment of the Work by the public
-as contemplated by Affirmer's express Statement of Purpose.
-
-3. Public License Fallback. Should any part of the Waiver for any reason
-be judged legally invalid or ineffective under applicable law, then the
-Waiver shall be preserved to the maximum extent permitted taking into
-account Affirmer's express Statement of Purpose. In addition, to the
-extent the Waiver is so judged Affirmer hereby grants to each affected
-person a royalty-free, non transferable, non sublicensable, non exclusive,
-irrevocable and unconditional license to exercise Affirmer's Copyright and
-Related Rights in the Work (i) in all territories worldwide, (ii) for the
-maximum duration provided by applicable law or treaty (including future
-time extensions), (iii) in any current or future medium and for any number
-of copies, and (iv) for any purpose whatsoever, including without
-limitation commercial, advertising or promotional purposes (the
-"License"). The License shall be deemed effective as of the date CC0 was
-applied by Affirmer to the Work. Should any part of the License for any
-reason be judged legally invalid or ineffective under applicable law, such
-partial invalidity or ineffectiveness shall not invalidate the remainder
-of the License, and in such case Affirmer hereby affirms that he or she
-will not (i) exercise any of his or her remaining Copyright and Related
-Rights in the Work or (ii) assert any associated claims and causes of
-action with respect to the Work, in either case contrary to Affirmer's
-express Statement of Purpose.
-
-4. Limitations and Disclaimers.
-
- a. No trademark or patent rights held by Affirmer are waived, abandoned,
-    surrendered, licensed or otherwise affected by this document.
- b. Affirmer offers the Work as-is and makes no representations or
-    warranties of any kind concerning the Work, express, implied,
-    statutory or otherwise, including without limitation warranties of
-    title, merchantability, fitness for a particular purpose, non
-    infringement, or the absence of latent or other defects, accuracy, or
-    the present or absence of errors, whether or not discoverable, all to
-    the greatest extent permissible under applicable law.
- c. Affirmer disclaims responsibility for clearing rights of other persons
-    that may apply to the Work or any use thereof, including without
-    limitation any person's Copyright and Related Rights in the Work.
-    Further, Affirmer disclaims responsibility for obtaining any necessary
-    consents, permissions or other rights required for any use of the
-    Work.
- d. Affirmer understands and acknowledges that Creative Commons is not a
-    party to this document and has no duty or obligation with respect to
-    this CC0 or use of the Work.
 
 ```
 
@@ -2234,7 +2103,6 @@ DEALINGS IN THE SOFTWARE.
 
 Used by:
 
-- [hashbrown 0.15.5](https://github.com/rust-lang/hashbrown)
 - [hashbrown 0.16.1](https://github.com/rust-lang/hashbrown)
 - [hashbrown 0.17.1](https://github.com/rust-lang/hashbrown)
 
@@ -2828,6 +2696,41 @@ DEALINGS IN THE SOFTWARE.
 
 Used by:
 
+- [zeroize 1.9.1](https://github.com/RustCrypto/utils)
+
+```
+Copyright (c) 2018-2026 The RustCrypto Project Developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+```
+
+## <a id="MIT"></a>MIT License
+
+Used by:
+
 - [getrandom 0.4.3](https://github.com/rust-random/getrandom)
 
 ```
@@ -3007,6 +2910,7 @@ DEALINGS IN THE SOFTWARE.
 Used by:
 
 - [chacha20 0.10.2](https://github.com/RustCrypto/stream-ciphers)
+- [zeroize_derive 1.5.0](https://github.com/RustCrypto/utils)
 
 ```
 Copyright (c) 2019-2026 The RustCrypto Project Developers
@@ -3076,7 +2980,7 @@ DEALINGS IN THE SOFTWARE.
 
 Used by:
 
-- [crevice 0.19.0](https://github.com/LPGhatguy/crevice)
+- [crevice 0.20.1](https://github.com/LPGhatguy/crevice)
 
 ```
 Copyright (c) 2020 Lucien Greathouse
@@ -3204,7 +3108,7 @@ DEALINGS IN THE SOFTWARE.
 
 Used by:
 
-- [pollster 0.4.0](https://github.com/zesterer/pollster)
+- [pollster 1.0.1](https://github.com/zesterer/pollster)
 
 ```
 Copyright (c) 2020-2021 Joshua Barretto
@@ -3476,7 +3380,7 @@ DEALINGS IN THE SOFTWARE.
 
 Used by:
 
-- [bit-set 0.9.1](https://github.com/contain-rs/bit-set)
+- [bit-set 0.10.0](https://github.com/contain-rs/bit-set)
 
 ```
 Copyright (c) 2026 The Rust Project Developers
@@ -4267,14 +4171,15 @@ SOFTWARE.
 
 Used by:
 
-- [naga 29.0.4](https://github.com/gfx-rs/wgpu)
-- [wgpu-core-deps-apple 29.0.4](https://github.com/gfx-rs/wgpu)
-- [wgpu-core-deps-windows-linux-android 29.0.4](https://github.com/gfx-rs/wgpu)
-- [wgpu-core 29.0.4](https://github.com/gfx-rs/wgpu)
-- [wgpu-hal 29.0.4](https://github.com/gfx-rs/wgpu)
-- [wgpu-naga-bridge 29.0.4](https://github.com/gfx-rs/wgpu)
-- [wgpu-types 29.0.4](https://github.com/gfx-rs/wgpu)
-- [wgpu 29.0.4](https://github.com/gfx-rs/wgpu)
+- [naga-types 30.0.2](https://github.com/gfx-rs/wgpu)
+- [naga 30.0.2](https://github.com/gfx-rs/wgpu)
+- [wgpu-core-deps-apple 30.0.2](https://github.com/gfx-rs/wgpu)
+- [wgpu-core-deps-windows-linux-android 30.0.2](https://github.com/gfx-rs/wgpu)
+- [wgpu-core 30.0.2](https://github.com/gfx-rs/wgpu)
+- [wgpu-hal 30.0.2](https://github.com/gfx-rs/wgpu)
+- [wgpu-naga-bridge 30.0.2](https://github.com/gfx-rs/wgpu)
+- [wgpu-types 30.0.2](https://github.com/gfx-rs/wgpu)
+- [wgpu 30.0.2](https://github.com/gfx-rs/wgpu)
 
 ```
 MIT License
@@ -4312,8 +4217,6 @@ Used by:
 - [dispatch2 0.3.1](https://github.com/madsmtm/objc2)
 - [dispatch 0.2.0](http://github.com/SSheldon/rust-dispatch)
 - [dpi 0.1.2](https://github.com/rust-windowing/winit)
-- [gpu-descriptor-types 0.2.0](https://github.com/zakarumych/gpu-descriptor)
-- [gpu-descriptor 0.3.2](https://github.com/zakarumych/gpu-descriptor)
 - [libm 0.2.16](https://github.com/rust-lang/compiler-builtins)
 - [lyon 1.0.19](https://github.com/nical/lyon)
 - [lyon_algorithms 1.0.22](https://github.com/nical/lyon)
@@ -4326,6 +4229,7 @@ Used by:
 - [objc2-core-audio-types 0.3.2](https://github.com/madsmtm/objc2)
 - [objc2-core-audio 0.3.2](https://github.com/madsmtm/objc2)
 - [objc2-core-foundation 0.3.2](https://github.com/madsmtm/objc2)
+- [objc2-core-graphics 0.3.2](https://github.com/madsmtm/objc2)
 - [objc2-encode 4.1.0](https://github.com/madsmtm/objc2)
 - [objc2-foundation 0.2.2](https://github.com/madsmtm/objc2)
 - [objc2-foundation 0.3.2](https://github.com/madsmtm/objc2)
@@ -4669,7 +4573,7 @@ Used by:
 
 - [adler2 2.0.1](https://github.com/oyvindln/adler2)
 - [concurrent-queue 2.5.0](https://github.com/smol-rs/concurrent-queue)
-- [glam 0.32.1](https://github.com/bitshifter/glam-rs)
+- [glam 0.33.12](https://github.com/bitshifter/glam-rs)
 - [khronos-egl 6.0.0](https://github.com/timothee-haudebourg/khronos-egl)
 - [lazy_static 1.5.1](https://github.com/rust-lang-nursery/lazy-static.rs)
 - [linux-raw-sys 0.12.1](https://github.com/sunfishcode/linux-raw-sys)
@@ -4692,7 +4596,7 @@ Used by:
 - [thiserror-impl 2.0.21](https://github.com/dtolnay/thiserror)
 - [thiserror 1.0.69](https://github.com/dtolnay/thiserror)
 - [thiserror 2.0.21](https://github.com/dtolnay/thiserror)
-- [typed-path 0.12.4](https://github.com/chipsenkbeil/typed-path)
+- [typed-path 0.13.0](https://github.com/chipsenkbeil/typed-path)
 - [unicode-ident 1.0.27](https://github.com/dtolnay/unicode-ident)
 - [x11-dl 2.21.0](https://github.com/AltF02/x11-rs.git)
 
@@ -4848,7 +4752,7 @@ SOFTWARE.
 Used by:
 
 - [tracing-core 0.1.36](https://github.com/tokio-rs/tracing)
-- [zip 8.6.0](https://github.com/zip-rs/zip2)
+- [zip 9.5.1](https://github.com/zip-rs/zip2)
 
 ```
 The MIT License (MIT)
@@ -4886,6 +4790,37 @@ Used by:
 The MIT License (MIT)
 
 Copyright (c) 2015 Andrew Gallant
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+```
+
+## <a id="MIT"></a>MIT License
+
+Used by:
+
+- [nix 0.31.3](https://github.com/nix-rust/nix)
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2015 Carl Lerche + nix-rust Authors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -5519,7 +5454,6 @@ authorization of the copyright holder.
 
 Used by:
 
-- [foldhash 0.1.5](https://github.com/orlp/foldhash)
 - [foldhash 0.2.0](https://github.com/orlp/foldhash)
 
 ```
