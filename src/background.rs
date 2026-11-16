@@ -38,6 +38,9 @@ const SKIP_STEP: f32 = 1.0 / 60.0;
 const STORM_LEVELS: f32 = 11.0; // levels from calm to full storm, full at level 12
 const WHITEOUT_START: f32 = 10.0; // level the whiteout starts to creep in
 const WHITEOUT_LEVELS: f32 = 6.0; // levels from the first haze to a near whiteout
+const STORM_RUSH_WIND: f32 = 14.0; // extra cloud and gust speed at the height of a level up
+const STORM_RUSH_RAIN: f32 = 2.5; // extra rain speed at the height of a level up
+const STORM_RUSH_SEA: f32 = 2.0; // extra wave speed at the height of a level up
 const STORM_RAMP: f32 = 0.4; // how quickly the storm follows the level, per second
 
 /// animated background shown behind the game
@@ -118,9 +121,11 @@ impl Background {
             .powf(1.5);
         self.whiteout += (white - self.whiteout) * (dt * STORM_RAMP).min(1.0);
         let step = self.time - before;
-        self.wind += step * (1.0 + 3.0 * self.storm);
-        self.rain += step * (1.0 + 0.7 * self.storm + 0.5 * self.whiteout);
-        self.sea += step * (1.0 + 0.9 * self.storm);
+        // a level up rushes the whole storm past, like the star warp
+        let rush = self.rush();
+        self.wind += step * (1.0 + 3.0 * self.storm + STORM_RUSH_WIND * rush);
+        self.rain += step * (1.0 + 0.7 * self.storm + 0.5 * self.whiteout + STORM_RUSH_RAIN * rush);
+        self.sea += step * (1.0 + 0.9 * self.storm + STORM_RUSH_SEA * rush);
         self.bolt += step * (1.0 + 1.5 * self.storm);
         self.energy = (self.energy - SURGE_DECAY * dt).max(0.0);
         self.level_up = self.level_up.map(|t| t + dt).filter(|t| *t < LEVEL_UP_TIME);

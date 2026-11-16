@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Storm level up: a white flash, a barrage of six lightning bolts sweeping
+  across the sea, and a rush of wind, stretched rain and heaving waves.
 - Storm background: rain, wind and a three-layer sea under rolling clouds.
   The storm builds with the level, reaching full strength at level 12, and
   a whiteout of rain and mist creeps in from level 10.
