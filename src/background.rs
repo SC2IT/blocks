@@ -39,7 +39,7 @@ const STORM_LEVELS: f32 = 11.0; // levels from calm to full storm, full at level
 const WHITEOUT_START: f32 = 10.0; // level the whiteout starts to creep in
 const WHITEOUT_LEVELS: f32 = 6.0; // levels from the first haze to a near whiteout
 const STORM_RUSH_WIND: f32 = 14.0; // extra cloud and gust speed at the height of a level up
-const STORM_RUSH_RAIN: f32 = 2.5; // extra rain speed at the height of a level up
+const STORM_RUSH_RAIN: f32 = 1.0; // extra rain speed at the height of a level up
 const STORM_RUSH_SEA: f32 = 2.0; // extra wave speed at the height of a level up
 const STORM_RAMP: f32 = 0.4; // how quickly the storm follows the level, per second
 
