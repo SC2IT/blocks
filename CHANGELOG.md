@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Glitch pieces: now and then an odd-shaped piece turns up with three, four
+  or five blocks, some with gaps. Glitch pieces flicker in magenta and cyan
+  and burst with jumps, color flashes and tears. They turn up in about 1 in
+  40 pieces early on, rising to 1 in 12 by level 15, never two in a row, and
+  never take a piece out of the bag.
+- `glitch` screenshot scene, with `GLITCH_TIME` to pick the moment.
 - Storm level up: a white flash, a barrage of six lightning bolts sweeping
   across the sea, and the sea heaving up into the new level's state.
 - Storm background: rain, wind and a three-layer sea under rolling clouds.

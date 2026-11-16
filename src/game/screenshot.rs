@@ -13,8 +13,16 @@ use crate::scores::{HighScore, Initials};
 use crate::style::{BlockStyle, BoardStyle};
 use crate::{
     playfield::{LineClear, SlotState, TranslationDirection},
-    rustomino::{Rustomino, RustominoType},
+    rustomino::{GlitchShape, Rustomino, RustominoType},
 };
+
+/// clock for glitch pieces in screenshots, GLITCH_TIME picks another moment
+pub(super) fn glitch_time() -> f32 {
+    std::env::var("GLITCH_TIME")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(3.0)
+}
 
 // bottom row first, '.' is empty
 const STACK: [&str; 5] = [
@@ -54,10 +62,11 @@ pub enum Scene {
     HighScoresNew,
     ProgressFill,
     LevelUp,
+    Glitch,
 }
 
 impl Scene {
-    const ALL: [(&'static str, Scene); 27] = [
+    const ALL: [(&'static str, Scene); 28] = [
         ("menu", Scene::Menu),
         ("playing", Scene::Playing),
         ("line-clear", Scene::LineClear),
@@ -85,6 +94,7 @@ impl Scene {
         ("high-scores-new", Scene::HighScoresNew),
         ("progress-fill", Scene::ProgressFill),
         ("level-up", Scene::LevelUp),
+        ("glitch", Scene::Glitch),
     ];
 
     fn parse(name: &str) -> Option<Scene> {
@@ -142,6 +152,7 @@ fn rtype(c: char) -> Option<RustominoType> {
         'J' => Some(RustominoType::J),
         'S' => Some(RustominoType::S),
         'Z' => Some(RustominoType::Z),
+        'X' => Some(RustominoType::Glitch),
         _ => None,
     }
 }
@@ -278,6 +289,19 @@ impl BlocksState {
                 };
                 self.setup_board();
                 self.setup_active();
+                self.state = GameState::Playing;
+            }
+            Scene::Glitch => {
+                // a glitch piece falling onto a stack with an old one locked in
+                self.setup_board();
+                self.fill_rows(3, &[".TTXX.S...", "...X..O..."]);
+                self.playfield
+                    .set_active(Rustomino::glitch(GlitchShape::Fat));
+                for _ in 0..8 {
+                    self.playfield.translate_active(TranslationDirection::Down);
+                }
+                self.playfield.translate_active(TranslationDirection::Right);
+                self.next_rustomino = Some(Rustomino::glitch(GlitchShape::Split));
                 self.state = GameState::Playing;
             }
             Scene::Playing | Scene::Paused => {

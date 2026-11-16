@@ -80,7 +80,7 @@ impl Playfield {
     pub fn set_active(&mut self, rustomino: Rustomino) -> bool {
         log::info!("playing new rustomino: {:?}", rustomino.rtype);
         log::trace!("new rustomino: {:?}", rustomino);
-        let ok = !check_collision(&self.slots, rustomino.playfield_slots());
+        let ok = !check_collision(&self.slots, &rustomino.playfield_slots());
         self.active_rustomino = Some(rustomino);
         self.update_ghost_rustomino();
         ok
@@ -105,7 +105,7 @@ impl Playfield {
         self.active_rustomino.as_ref().is_some_and(|rustomino| {
             !check_collision(
                 &self.slots,
-                rustomino.translated(&TranslationDirection::DOWN_TRANSLATION),
+                &rustomino.translated(&TranslationDirection::DOWN_TRANSLATION),
             )
         })
     }
@@ -154,7 +154,7 @@ impl Playfield {
 
         // check to see if the translation would cause a collision with a locked block
         let translation = direction.get_translation();
-        if check_collision(&self.slots, active_rustomino.translated(&translation)) {
+        if check_collision(&self.slots, &active_rustomino.translated(&translation)) {
             log::debug!("cannot translate, collision detected");
             return false;
         }
@@ -165,7 +165,7 @@ impl Playfield {
     }
 
     /// returns the slots it dropped from
-    pub fn hard_drop_active(&mut self) -> Option<[IVec2; 4]> {
+    pub fn hard_drop_active(&mut self) -> Option<Vec<IVec2>> {
         let active_rustomino = self.active_rustomino.as_mut()?;
         let from = active_rustomino.playfield_slots();
         let delta = get_hard_drop_translation(&self.slots, active_rustomino);
@@ -175,13 +175,13 @@ impl Playfield {
 
     /// lock the active rustomino
     /// returns the slots it was locked into
-    pub fn lock_active(&mut self) -> Option<[IVec2; 4]> {
+    pub fn lock_active(&mut self) -> Option<Vec<IVec2>> {
         let active_rustomino = self.active_rustomino.take()?;
         log::info!("locking rustomino: {:?}", active_rustomino.rtype);
         log::trace!("rustomino: {:?}", active_rustomino);
 
         let slots = active_rustomino.playfield_slots();
-        for slot in slots {
+        for slot in &slots {
             self.slots[slot.y as usize][slot.x as usize] =
                 SlotState::Locked(active_rustomino.rtype);
         }
@@ -275,7 +275,7 @@ fn get_hard_drop_translation(playfield_slots: &PlayfieldSlots, rustomino: &Rusto
     let mut translation = IVec2::ZERO;
     while !check_collision(
         playfield_slots,
-        rustomino.translated(&(translation + TranslationDirection::DOWN_TRANSLATION)),
+        &rustomino.translated(&(translation + TranslationDirection::DOWN_TRANSLATION)),
     ) {
         translation += TranslationDirection::DOWN_TRANSLATION;
     }
@@ -285,7 +285,7 @@ fn get_hard_drop_translation(playfield_slots: &PlayfieldSlots, rustomino: &Rusto
 
 /// check to see if the provided block locations collide with other locked blocks
 /// or with walls
-fn check_collision(playfield_slots: &PlayfieldSlots, block_locations: [IVec2; 4]) -> bool {
+fn check_collision(playfield_slots: &PlayfieldSlots, block_locations: &[IVec2]) -> bool {
     for location in block_locations {
         // check for left and right wall collisions
         if location[0] < 0 || location[0] >= PLAYFIELD_SLOTS[0] as i32 {
@@ -322,7 +322,7 @@ fn check_rotation(
     let rotated_blocks = rustomino.rotated(rotation);
     wall_kick_tests
         .iter()
-        .find(|x| !check_collision(playfield_slots, translated(&rotated_blocks, x)))
+        .find(|x| !check_collision(playfield_slots, &translated(&rotated_blocks, x)))
         .copied()
 }
 
@@ -331,8 +331,8 @@ impl Display for Playfield {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let active = self.active_rustomino.as_ref().map(|r| r.playfield_slots());
         let ghost = self.ghost_rustomino.as_ref().map(|r| r.playfield_slots());
-        let contains = |blocks: &Option<[IVec2; 4]>, slot: IVec2| {
-            blocks.is_some_and(|blocks| blocks.contains(&slot))
+        let contains = |blocks: &Option<Vec<IVec2>>, slot: IVec2| {
+            blocks.as_ref().is_some_and(|blocks| blocks.contains(&slot))
         };
         for (y, row) in self.slots.iter().enumerate().rev() {
             if y + 1 == PLAYFIELD_SIZE[1] as usize {

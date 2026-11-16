@@ -534,9 +534,9 @@ impl BlocksState {
         // if there is no next_rustomino get one from the bag
         let next_rustomino = match self.next_rustomino.take() {
             Some(rustomino) => rustomino,
-            None => self.rustomino_bag.get_next(),
+            None => self.rustomino_bag.get_next(self.level),
         };
-        self.next_rustomino = Some(self.rustomino_bag.get_next());
+        self.next_rustomino = Some(self.rustomino_bag.get_next(self.level));
         next_rustomino
     }
 
@@ -1102,6 +1102,7 @@ impl BlocksState {
             score_display: &self.score_display,
             best: self.scores.best().max(self.score_display.shown()),
             shake: shaking.then(|| self.effects.shake()),
+            glitch_time: self.screenshot.as_ref().map(|_| screenshot::glitch_time()),
         }
     }
 
@@ -1581,7 +1582,7 @@ fn score_cleared_lines(num_lines: usize, level: usize) -> usize {
 
 // checks to see if ALL of the slots in the provided
 // slots array are above the playfield
-fn fully_out_of_bounds(&slots: &[IVec2; 4]) -> bool {
+fn fully_out_of_bounds(slots: &[IVec2]) -> bool {
     for slot in slots {
         if slot[1] < PLAYFIELD_SIZE[1] {
             return false;

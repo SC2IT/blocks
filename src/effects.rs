@@ -60,7 +60,7 @@ impl Trail {
 }
 
 pub struct Impact {
-    pub blocks: [IVec2; 4],
+    pub blocks: Vec<IVec2>,
     pub strength: f32,
     time: f32,
 }
@@ -268,7 +268,7 @@ impl Effects {
     }
 
     /// trail, landing flash, dust and bump for a hard drop
-    pub fn hard_drop(&mut self, from: &[IVec2; 4], to: &[IVec2; 4], color: Color) {
+    pub fn hard_drop(&mut self, from: &[IVec2], to: &[IVec2], color: Color) {
         let rows = (from[0].y - to[0].y) as f32;
         self.drop_trails(from, to, color, 1.0);
         for x in columns(to) {
@@ -281,7 +281,7 @@ impl Effects {
             self.dust(x, bottom, color, DUST_PER_COLUMN);
         }
         self.impact = Some(Impact {
-            blocks: *to,
+            blocks: to.to_vec(),
             strength: 1.0,
             time: 0.0,
         });
@@ -290,17 +290,17 @@ impl Effects {
     }
 
     /// streak over rows skipped by one gravity tick
-    pub fn gravity_drop(&mut self, from: &[IVec2; 4], to: &[IVec2; 4], color: Color) {
+    pub fn gravity_drop(&mut self, from: &[IVec2], to: &[IVec2], color: Color) {
         self.drop_trails(from, to, color, GRAVITY_TRAIL);
     }
 
     /// one trail per column from the old top to the new top
-    fn drop_trails(&mut self, from: &[IVec2; 4], to: &[IVec2; 4], color: Color, strength: f32) {
+    fn drop_trails(&mut self, from: &[IVec2], to: &[IVec2], color: Color, strength: f32) {
         if from[0].y <= to[0].y {
             return;
         }
         for x in columns(to) {
-            let top = |blocks: &[IVec2; 4]| blocks.iter().filter(|b| b.x == x).map(|b| b.y).max();
+            let top = |blocks: &[IVec2]| blocks.iter().filter(|b| b.x == x).map(|b| b.y).max();
             if let (Some(from_top), Some(to_top)) = (top(from), top(to)) {
                 self.trails.push(Trail {
                     x: x as f32,
@@ -315,7 +315,7 @@ impl Effects {
     }
 
     /// short streak above a piece moved down one row
-    pub fn soft_drop(&mut self, to: &[IVec2; 4], color: Color) {
+    pub fn soft_drop(&mut self, to: &[IVec2], color: Color) {
         for x in columns(to) {
             let Some(top) = to.iter().filter(|b| b.x == x).map(|b| b.y).max() else {
                 continue;
@@ -332,14 +332,14 @@ impl Effects {
     }
 
     /// soft flash, dust and bump for a normal lock
-    pub fn lock(&mut self, blocks: &[IVec2; 4], color: Color) {
+    pub fn lock(&mut self, blocks: &[IVec2], color: Color) {
         for x in columns(blocks) {
             if let Some(bottom) = blocks.iter().filter(|b| b.x == x).map(|b| b.y).min() {
                 self.dust(x, bottom, color, LOCK_DUST_PER_COLUMN);
             }
         }
         self.impact = Some(Impact {
-            blocks: *blocks,
+            blocks: blocks.to_vec(),
             strength: LOCK_FLASH,
             time: 0.0,
         });
@@ -446,7 +446,7 @@ impl Effects {
     }
 }
 
-fn columns(blocks: &[IVec2; 4]) -> Vec<i32> {
+fn columns(blocks: &[IVec2]) -> Vec<i32> {
     let mut columns: Vec<i32> = blocks.iter().map(|block| block.x).collect();
     columns.sort_unstable();
     columns.dedup();
