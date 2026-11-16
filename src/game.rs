@@ -20,6 +20,8 @@ mod stretch;
 pub use screenshot::Screenshot;
 use strum::{EnumIter, IntoEnumIterator};
 
+use crate::draw::Layer;
+
 use crate::{
     background::{Background, BackgroundStyle},
     controls::{self, Control, GameControls},
@@ -333,7 +335,7 @@ pub fn window_mode(screenshot: bool, window: &WindowState) -> conf::WindowMode {
         .resize_on_scale_factor_change(true)
         .dimensions(draw::VIEW_WIDTH, draw::VIEW_HEIGHT)
         .min_dimensions(min_width, min_height)
-        .visible(false);
+        .visible(screenshot && cfg!(target_os = "macos"));
     // screenshots stay at a fixed pixel size
     if !screenshot {
         mode.logical_size = Some(winit::dpi::LogicalSize::new(
@@ -973,152 +975,92 @@ impl BlocksState {
             canvas,
             &self.meshes,
             &self.view_settings.view_rect,
-            self.background.style,
+            &self.background,
         );
 
-        // handle the game states
-        let state = self.shown_state();
-        match state {
-            GameState::Menu => {
-                draw::draw_background_animation(
-                    canvas,
-                    &self.meshes,
-                    &self.background,
-                    &self.view_settings.view_rect,
-                );
-                draw::draw_menu(
-                    ctx,
-                    canvas,
-                    &self.meshes,
-                    &self.menu_state,
-                    &self.view_settings,
-                    self.style.block,
-                )?;
+        let frame = draw::Frame {
+            ctx,
+            meshes: &self.meshes,
+            view: &self.view_settings,
+            block: self.style.block,
+        };
+
+        // layers for the game states, bottom first
+        match self.shown_state() {
+            GameState::Menu => draw::MenuScreen {
+                menu: &self.menu_state,
             }
-            GameState::Playing | GameState::Paused | GameState::GameOver => {
-                draw::draw_background_animation(
-                    canvas,
-                    &self.meshes,
-                    &self.background,
-                    &self.view_settings.view_rect,
-                );
-                self.draw_game(ctx, canvas)?;
-                match state {
-                    GameState::Paused => draw::draw_paused(
-                        ctx,
-                        canvas,
-                        &self.meshes,
-                        &self.paused_state,
-                        &self.view_settings,
-                        self.style.block,
-                    )?,
-                    GameState::GameOver => {
-                        if let Some(game_over) = &self.effects.game_over {
-                            draw::draw_gameover(
-                                ctx,
-                                canvas,
-                                &self.meshes,
-                                &self.view_settings.view_rect,
-                                game_over,
-                                self.score,
-                                self.level,
-                            )?;
-                        }
+            .draw(canvas, &frame)?,
+            GameState::Playing => self.game_layer().draw(canvas, &frame)?,
+            GameState::Paused => {
+                self.game_layer().draw(canvas, &frame)?;
+                draw::PausedScreen {
+                    menu: &self.paused_state,
+                }
+                .draw(canvas, &frame)?;
+            }
+            GameState::GameOver => {
+                self.game_layer().draw(canvas, &frame)?;
+                if let Some(game_over) = &self.effects.game_over {
+                    draw::GameOverScreen {
+                        game_over,
+                        score: self.score,
+                        level: self.level,
                     }
-                    _ => {}
+                    .draw(canvas, &frame)?;
                 }
             }
             GameState::Options => {
-                draw::draw_background_animation(
-                    canvas,
-                    &self.meshes,
-                    &self.background,
-                    &self.view_settings.view_rect,
-                );
                 // opened from pause, show the game underneath
                 if self.options_in_game() {
-                    self.draw_game(ctx, canvas)?;
-                    draw::draw_overlay(canvas, &self.meshes, &self.view_settings.view_rect);
+                    self.game_layer().draw(canvas, &frame)?;
+                    draw::Overlay.draw(canvas, &frame)?;
                 }
                 let (title, menu) = if self.audio_open {
                     ("Audio", &self.audio_state)
                 } else {
                     ("Options", &self.options_state)
                 };
-                draw::draw_options(
-                    ctx,
-                    canvas,
-                    &self.meshes,
+                draw::OptionsScreen {
                     title,
                     menu,
-                    &self.option_rows(),
-                    self.mode,
-                    &self.style,
-                    VOLUME_LEVELS,
-                    &self.view_settings,
-                )?;
+                    rows: &self.option_rows(),
+                    mode: self.mode,
+                    style: &self.style,
+                    max_level: VOLUME_LEVELS,
+                }
+                .draw(canvas, &frame)?;
             }
             GameState::NameEntry => {
-                draw::draw_background_animation(
-                    canvas,
-                    &self.meshes,
-                    &self.background,
-                    &self.view_settings.view_rect,
-                );
-                self.draw_game(ctx, canvas)?;
-                draw::draw_name_entry(
-                    ctx,
-                    canvas,
-                    &self.meshes,
-                    &self.view_settings.view_rect,
-                    &self.initials,
-                    self.score,
-                    self.style.block,
-                )?;
+                self.game_layer().draw(canvas, &frame)?;
+                draw::NameEntryScreen {
+                    initials: &self.initials,
+                    score: self.score,
+                }
+                .draw(canvas, &frame)?;
             }
-            GameState::HighScores => {
-                draw::draw_background_animation(
-                    canvas,
-                    &self.meshes,
-                    &self.background,
-                    &self.view_settings.view_rect,
-                );
-                draw::draw_high_scores(
-                    ctx,
-                    canvas,
-                    &self.meshes,
-                    &self.view_settings.view_rect,
-                    &self.scores,
-                    self.highlight,
-                    self.style.block,
-                )?;
+            GameState::HighScores => draw::HighScoresScreen {
+                scores: &self.scores,
+                highlight: self.highlight,
             }
+            .draw(canvas, &frame)?,
             // debug background view
-            GameState::Debug => draw::draw_background_animation(
-                canvas,
-                &self.meshes,
-                &self.background,
-                &self.view_settings.view_rect,
-            ),
+            GameState::Debug => {}
             GameState::Quit => {}
         }
 
         if self.state == GameState::Debug && !self.debug.hidden {
             let names = debug::Animation::ALL.map(debug::Animation::name);
-            draw::draw_debug(
-                ctx,
-                canvas,
-                &self.meshes,
-                &self.view_settings,
-                &names,
-                self.debug.selected,
-                self.debug.speed(),
-                self.debug.paused,
-                self.debug.replay,
-                self.debug.level,
-                self.debug.fps(),
-                self.style.block,
-            )?;
+            draw::DebugScreen {
+                names: &names,
+                selected: self.debug.selected,
+                speed: self.debug.speed(),
+                paused: self.debug.paused,
+                replay: self.debug.replay,
+                level: self.debug.level,
+                fps: self.debug.fps(),
+            }
+            .draw(canvas, &frame)?;
         }
 
         Ok(())
@@ -1133,56 +1075,34 @@ impl BlocksState {
         }
     }
 
-    fn draw_game(&self, ctx: &mut Context, canvas: &mut graphics::Canvas) -> GameResult {
-        let screen = canvas.screen_coordinates();
+    /// score, level and progress bar animations, run on through pause and past the game's end
+    /// so they finish
+    fn update_displays(&mut self, delta_time: f64) {
+        self.score_display.update(delta_time);
+        self.level_display.update(delta_time);
+        // the shown level ticks up with the bar's burst
+        if self.level_progress.update(delta_time) {
+            self.level_display.add(1);
+        }
+    }
+
+    /// the board, shaking while playing and on game over
+    fn game_layer(&self) -> draw::GameLayer<'_> {
         let shaking = matches!(self.shown_state(), GameState::Playing | GameState::GameOver);
-        if let Some(rect) = screen.filter(|_| shaking) {
-            let shake = self.effects.shake();
-            canvas.set_screen_coordinates(graphics::Rect::new(
-                rect.x - shake.x,
-                rect.y - shake.y,
-                rect.w,
-                rect.h,
-            ));
+        draw::GameLayer {
+            playfield: &self.playfield,
+            next: &self.next_rustomino,
+            held: &self.held_rustomino,
+            game_over: self.effects.game_over.as_ref(),
+            style: &self.style,
+            assists: self.mode != Mode::Hard,
+            level_progress: &self.level_progress,
+            effects: &self.effects,
+            level_display: &self.level_display,
+            score_display: &self.score_display,
+            best: self.scores.best().max(self.score_display.shown()),
+            shake: shaking.then(|| self.effects.shake()),
         }
-        draw::draw_playing(
-            canvas,
-            &self.meshes,
-            &self.playfield,
-            &self.next_rustomino,
-            &self.held_rustomino,
-            &self.view_settings,
-            self.effects.game_over.as_ref(),
-            &self.style,
-            self.mode != Mode::Hard,
-        );
-        draw::draw_level_progress(
-            canvas,
-            &self.meshes,
-            &self.level_progress,
-            &self.view_settings,
-            self.style.block,
-        );
-        draw::draw_effects(
-            ctx,
-            canvas,
-            &self.meshes,
-            &self.effects,
-            &self.view_settings,
-        )?;
-        draw::draw_playing_text(
-            ctx,
-            canvas,
-            &self.level_display,
-            &self.score_display,
-            self.scores.best().max(self.score_display.shown()),
-            &self.view_settings,
-            self.mode != Mode::Hard,
-        )?;
-        if let Some(rect) = screen {
-            canvas.set_screen_coordinates(rect);
-        }
-        Ok(())
     }
 
     /// change the selected option's setting
@@ -1360,6 +1280,19 @@ impl BlocksState {
 
 impl EventHandler for BlocksState {
     fn update(&mut self, ctx: &mut ggez::Context) -> GameResult {
+        // cap the loop at the tick rate, 15fps in the background
+        // paced here, not in draw: no frame is drawn while the window is occluded
+        let frame = if self.focused {
+            Duration::from_secs_f64(1.0 / self.debug.fps() as f64)
+        } else {
+            UNFOCUSED_FRAME
+        };
+        if let Some(wait) = (self.last_frame + frame).checked_duration_since(Instant::now()) {
+            std::thread::sleep(wait);
+        }
+        self.last_frame = Instant::now();
+        ggez::timer::yield_now();
+
         // screenshots are of a fixed scene
         if self.screenshot.is_some() {
             return Ok(());
@@ -1378,12 +1311,7 @@ impl EventHandler for BlocksState {
             match self.state {
                 GameState::Playing => {
                     self.handle_playing_inputs(delta_time);
-                    self.score_display.update(delta_time);
-                    self.level_display.update(delta_time);
-                    // the shown level ticks up with the bar's burst
-                    if self.level_progress.update(delta_time) {
-                        self.level_display.add(1);
-                    }
+                    self.update_displays(delta_time);
                     self.effects.update(delta_time);
                     self.background.update(delta_time, self.level);
                     if self.playfield.is_clearing_lines() {
@@ -1398,14 +1326,21 @@ impl EventHandler for BlocksState {
                         self.assets.play_game_over();
                         self.previous_state = GameState::GameOver;
                     }
+                    self.update_displays(delta_time);
                     self.effects.update(delta_time);
                     self.background.update(delta_time, self.level);
                 }
-                GameState::Paused => self.background.update(delta_time, self.level),
+                GameState::Paused => {
+                    self.update_displays(delta_time);
+                    self.background.update(delta_time, self.level)
+                }
+                // opened from pause, the game shows underneath
                 GameState::Options if self.options_in_game() => {
+                    self.update_displays(delta_time);
                     self.background.update(delta_time, self.level)
                 }
                 GameState::NameEntry => {
+                    self.update_displays(delta_time);
                     self.effects.update(delta_time);
                     self.background.update(delta_time, self.level)
                 }
@@ -1431,18 +1366,6 @@ impl EventHandler for BlocksState {
             ctx.request_quit();
         }
 
-        // cap frames at the tick rate, 15fps in the background
-        let frame = if self.focused {
-            Duration::from_secs_f64(1.0 / self.debug.fps() as f64)
-        } else {
-            UNFOCUSED_FRAME
-        };
-        if let Some(wait) = (self.last_frame + frame).checked_duration_since(Instant::now()) {
-            std::thread::sleep(wait);
-        }
-        self.last_frame = Instant::now();
-
-        ggez::timer::yield_now();
         Ok(())
     }
 
