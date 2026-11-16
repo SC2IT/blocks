@@ -16,6 +16,7 @@ use std::{
 mod debug;
 mod music;
 mod screenshot;
+mod sfx;
 mod stretch;
 pub use screenshot::Screenshot;
 use strum::{EnumIter, IntoEnumIterator};
@@ -158,7 +159,7 @@ pub struct Assets {
     theme: usize,
     music_speed: f32,
     game_over: audio::Source,
-    sfx: HashMap<Sfx, audio::Source>,
+    sfx: HashMap<Sfx, sfx::Effect>,
     // sources paused on focus loss
     music_suspended: bool,
     game_over_suspended: bool,
@@ -178,7 +179,7 @@ impl Assets {
         // load game sound effects
         let mut sfx = HashMap::new();
         for effect in Sfx::iter() {
-            let mut source = audio::Source::new(ctx, effect.path())?;
+            let mut source = sfx::Effect::new(ctx, effect.path())?;
             source.set_volume(effect.volume(DEFAULT_VOLUME_LEVEL));
             sfx.insert(effect, source);
         }
@@ -193,8 +194,8 @@ impl Assets {
         })
     }
 
-    fn play(&self, effect: Sfx) {
-        if let Some(source) = self.sfx.get(&effect) {
+    fn play(&mut self, effect: Sfx) {
+        if let Some(source) = self.sfx.get_mut(&effect) {
             source.play();
         }
     }
