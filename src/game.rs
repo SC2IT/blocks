@@ -534,9 +534,9 @@ impl BlocksState {
         // if there is no next_rustomino get one from the bag
         let next_rustomino = match self.next_rustomino.take() {
             Some(rustomino) => rustomino,
-            None => self.rustomino_bag.get_next(self.level),
+            None => self.rustomino_bag.get_next(self.level, self.mode),
         };
-        self.next_rustomino = Some(self.rustomino_bag.get_next(self.level));
+        self.next_rustomino = Some(self.rustomino_bag.get_next(self.level, self.mode));
         next_rustomino
     }
 

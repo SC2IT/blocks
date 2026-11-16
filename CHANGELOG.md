@@ -10,7 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Glitch pieces: now and then an odd four-block piece turns up, its blocks
-  joined only at the corners or broken by gaps. Glitch pieces flicker in magenta and cyan
+  joined only at the corners or broken by gaps. Standard mode deals the
+  gentle ones (Split, Kink, Hook and Drip); Hard mode adds Antlers, Diamond and
+  Corners. Glitch pieces flicker in magenta and cyan
   and burst with jumps, color flashes and tears. They turn up in about 1 in
   40 pieces early on, rising to 1 in 12 by level 15, never two in a row, and
   never take a piece out of the bag.
