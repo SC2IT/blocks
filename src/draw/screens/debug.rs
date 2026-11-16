@@ -5,7 +5,7 @@ use crate::draw::*;
 
 pub(super) const DEBUG_ROW_HEIGHT: f32 = 26.0;
 pub(super) const DEBUG_PANEL_GAP: f32 = 24.0; // below the hold and next previews
-pub(super) const DEBUG_HINTS: [&str; 11] = [
+pub(super) const DEBUG_HINTS: [&str; 12] = [
     "Up/Down: pick",
     "Enter: restart",
     "R: replay on/off",
@@ -16,8 +16,18 @@ pub(super) const DEBUG_HINTS: [&str; 11] = [
     "B/S: styles",
     "H: hide panels",
     "F/Shift F: fps",
+    "C: record frames",
     "Esc: back",
 ];
+
+/// averaged cost of drawing a frame
+#[derive(Debug, Clone, Copy)]
+pub struct FrameStats {
+    pub draws: usize,
+    pub scene_ms: f32,    // building the draw list
+    pub encode_ms: f32,   // ggez turning it into gpu commands
+    pub gpu_wait_ms: f32, // blocked on the last frame's gpu work, near 0 when the gpu keeps up
+}
 
 /// animation viewer list and controls
 /// animation viewer controls
@@ -29,6 +39,8 @@ pub struct DebugScreen<'a> {
     pub replay: bool,
     pub level: usize,
     pub fps: u32,
+    pub stats: Option<FrameStats>, // None until the first window is averaged
+    pub recording: bool,
 }
 
 impl Layer for DebugScreen<'_> {
@@ -41,6 +53,8 @@ impl Layer for DebugScreen<'_> {
             replay,
             level,
             fps,
+            stats,
+            recording,
         } = *self;
         let ctx = frame.ctx;
         let meshes = frame.meshes;
@@ -102,6 +116,33 @@ impl Layer for DebugScreen<'_> {
         for (i, hint) in DEBUG_HINTS.iter().enumerate() {
             let row = menu_row_rect(panel, i, DEBUG_ROW_HEIGHT);
             let text = ui_text(hint, SMALL_TEXT_SIZE * 0.75);
+            draw_text_centered(ctx, canvas, &text, row.center().into(), LABEL_COLOR)?;
+        }
+
+        // frame cost, under the controls
+        let Some(stats) = stats else {
+            return Ok(());
+        };
+        let lines = [
+            if recording {
+                format!("{} draws  REC", stats.draws)
+            } else {
+                format!("{} draws", stats.draws)
+            },
+            format!("CPU {:.2}ms", stats.scene_ms + stats.encode_ms),
+            format!("scene {:.2} enc {:.2}", stats.scene_ms, stats.encode_ms),
+            format!("GPU wait {:.2}ms", stats.gpu_wait_ms),
+        ];
+        let panel = Rect::new(
+            panel.x,
+            panel.bottom() + DEBUG_PANEL_GAP,
+            panel.w,
+            lines.len() as f32 * DEBUG_ROW_HEIGHT + 2.0 * PANEL_PADDING,
+        );
+        draw_panel(canvas, meshes, panel);
+        for (i, line) in lines.iter().enumerate() {
+            let row = menu_row_rect(panel, i, DEBUG_ROW_HEIGHT);
+            let text = ui_text(line, SMALL_TEXT_SIZE * 0.75);
             draw_text_centered(ctx, canvas, &text, row.center().into(), LABEL_COLOR)?;
         }
         Ok(())

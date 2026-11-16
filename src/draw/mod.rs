@@ -6,21 +6,24 @@ use crate::playfield;
 use crate::style::BlockStyle;
 
 mod background;
+mod batch;
 mod board;
 mod paint;
 mod screens;
 mod text;
 mod widgets;
 
+use batch::*;
 use paint::*;
 use text::*;
 use widgets::*;
 
 pub use background::{clear_color, draw_background, storm_strike_time, StrikeKind};
+pub use batch::{begin_frame, end_frame, take_draw_count};
 pub use board::GameLayer;
 pub use screens::{
-    DebugScreen, GameOverScreen, HighScoresScreen, MenuScreen, NameEntryScreen, OptionRow,
-    OptionsScreen, PausedScreen,
+    DebugScreen, FrameStats, GameOverScreen, HighScoresScreen, MenuScreen, NameEntryScreen,
+    OptionRow, OptionsScreen, PausedScreen,
 };
 pub use text::set_pixel_scale;
 pub use widgets::Overlay;

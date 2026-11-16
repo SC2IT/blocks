@@ -969,6 +969,7 @@ impl BlocksState {
         }
     }
     fn draw_scene(&self, ctx: &mut Context, canvas: &mut graphics::Canvas) -> GameResult {
+        draw::begin_frame(ctx);
         canvas.set_screen_coordinates(self.view_settings.view_rect);
         draw::set_pixel_scale(self.view_settings.scale);
         draw::draw_background(
@@ -1059,10 +1060,14 @@ impl BlocksState {
                 replay: self.debug.replay,
                 level: self.debug.level,
                 fps: self.debug.fps(),
+                stats: self.debug.stats.shown,
+                recording: self.debug.recording.is_some(),
             }
             .draw(canvas, &frame)?;
         }
 
+        // batched draws still queued
+        draw::end_frame(canvas);
         Ok(())
     }
 
@@ -1357,10 +1362,34 @@ impl EventHandler for BlocksState {
     }
 
     fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult {
+        // frame cost for the viewer, waiting out the gpu first so the cpu times are this frame's
+        // the wait stalls the cpu and gpu overlap, so only while viewing
+        let profiling = self.state == GameState::Debug;
+        let gpu_wait = if profiling {
+            let start = Instant::now();
+            ctx.gfx.wgpu().instance.poll_all(true);
+            start.elapsed()
+        } else {
+            Duration::ZERO
+        };
+        let start = Instant::now();
         let mut canvas =
             graphics::Canvas::from_frame(ctx, draw::clear_color(self.background.style));
         self.draw_scene(ctx, &mut canvas)?;
+        let scene = start.elapsed();
         canvas.finish(ctx)?;
+        let draws = draw::take_draw_count();
+        if profiling {
+            let sample = debug::FrameSample {
+                draws,
+                scene,
+                encode: start.elapsed() - scene,
+                gpu_wait,
+            };
+            let delta = ctx.time.delta();
+            self.record_frame(sample, delta);
+            self.debug.stats.record(sample, delta);
+        }
 
         if self.capture_screenshot(ctx)? {
             ctx.request_quit();
