@@ -31,7 +31,8 @@ impl Default for WindowState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    pub mode: String,
+    pub mode: String,      // the mode's name before there were four, for older versions
+    pub game_mode: String, // Normal, Medium, Hard or Extreme
     pub theme: String,
     pub background: String,
     pub blocks: String,
@@ -47,6 +48,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             mode: String::new(),
+            game_mode: String::new(),
             theme: String::new(),
             background: String::new(),
             blocks: String::new(),
@@ -126,6 +128,7 @@ mod tests {
     fn round_trip() {
         let settings = Settings {
             mode: "Hard".into(),
+            game_mode: "Extreme".into(),
             theme: "Bounce".into(),
             background: "Stars".into(),
             blocks: "Neon".into(),

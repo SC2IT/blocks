@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Four modes: Normal, Medium, Hard and Extreme. Extreme plays like the old
+  Hard mode, speeding up to instant drops by level 19 with no hold or ghost
+  piece. Normal, Medium and Hard keep hold and the ghost piece and stop
+  speeding up at level 15.
+
 - Storm level up: a white flash, a barrage of six lightning bolts sweeping
   across the sea, and the sea heaving up into the new level's state.
 - Storm background: rain, wind and a three-layer sea under rolling clouds.
@@ -26,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Song, Music and Sound moved to a new Audio page in the options.
+- Standard mode is now Normal and Hard mode is now Extreme. Saved settings
+  carry over to the matching new mode.
 
 ## [0.5.1] - 2026-11-15
 

@@ -165,10 +165,10 @@ impl Layer for OptionsScreen<'_> {
             }
         }
 
-        // controls reference, no hold in hard mode
+        // controls reference, no hold in extreme mode
         let rows: Vec<_> = CONTROLS
             .iter()
-            .filter(|(action, _)| mode != Mode::Hard || *action != "Hold")
+            .filter(|(action, _)| mode.assists() || *action != "Hold")
             .collect();
         let header = PANEL_PADDING + CONTROLS_ROW_HEIGHT * 1.2;
         let controls = Rect::new(

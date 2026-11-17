@@ -44,7 +44,7 @@ const UNFOCUSED_FRAME: Duration = Duration::from_nanos(1_000_000_000 / 15); // 1
 const FAST_GRAVITY_DELAY: f64 = 0.05; // gravity trail on every row at or below this
 const MIN_GRAVITY_DELAY: f64 = 1.0 / 1200.0; // 20 rows per 60th of a second
 const STARTING_LEVEL: usize = 1;
-const STANDARD_TOP_LEVEL: usize = 15; // standard mode stops speeding up here
+const TOP_LEVEL: usize = 15; // every mode but extreme stops speeding up here
 const LINES_PER_LEVEL: usize = 10; // number of lines that need to be cleared before level advances
 const LOCKDOWN_DELAY: f64 = 0.5; // how long to wait before locking block (guideline)
 const LINE_CLEAR_DELAY: f64 = 0.4; // how long completed lines stay before being removed
@@ -79,20 +79,50 @@ const JINGLE_VOL_MAX: f32 = 0.2; // jingles are mastered louder
 const HIGH_SCORE_VOL_MAX: f32 = 0.25;
 const MIN_WINDOW_SCALE: f32 = 0.5; // smallest window, in physical pixels, relative to the view
 
-/// gravity curve, fixed for a game
+/// difficulty, fixed for a game
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Mode {
-    Standard, // speeds up until level 15
-    Hard,     // speeds up to instant drops at level 19
+    Normal,  // speeds up until level 15
+    Medium,  // as normal for now, the new pieces will tell them apart
+    Hard,    // as normal for now, the new pieces will tell them apart
+    Extreme, // speeds up to instant drops at level 19, no hold or ghost
 }
 
 impl Mode {
-    pub const ALL: [Mode; 2] = [Mode::Standard, Mode::Hard];
+    pub const ALL: [Mode; 4] = [Mode::Normal, Mode::Medium, Mode::Hard, Mode::Extreme];
 
     pub fn name(self) -> &'static str {
         match self {
-            Mode::Standard => "Standard",
+            Mode::Normal => "Normal",
+            Mode::Medium => "Medium",
             Mode::Hard => "Hard",
+            Mode::Extreme => "Extreme",
+        }
+    }
+
+    /// hold and the ghost piece
+    pub fn assists(self) -> bool {
+        self != Mode::Extreme
+    }
+
+    /// the mode saved settings mean; settings from before there were four modes
+    /// only have the old names, where Standard is now Normal and Hard is now Extreme
+    pub fn from_settings(game_mode: &str, old_mode: &str) -> Option<Mode> {
+        if !game_mode.is_empty() {
+            return style::from_name(&Mode::ALL, game_mode, Mode::name);
+        }
+        match old_mode {
+            "Standard" => Some(Mode::Normal),
+            "Hard" => Some(Mode::Extreme),
+            _ => None,
+        }
+    }
+
+    /// the closest old name, so older versions reading the settings still get a mode
+    pub fn old_name(self) -> &'static str {
+        match self {
+            Mode::Extreme => "Hard",
+            _ => "Standard",
         }
     }
 }
@@ -420,8 +450,8 @@ impl BlocksState {
             background: Background::new(),
             style: Style::default(),
             rustomino_bag: RustominoBag::new(),
-            mode: Mode::Standard,
-            gravity_delay: gravity_delay(STARTING_LEVEL, Mode::Standard),
+            mode: Mode::Normal,
+            gravity_delay: gravity_delay(STARTING_LEVEL, Mode::Normal),
             total_lines_cleared: 0,
             hold_used: false,
             lockdown_resets: 0,
@@ -647,7 +677,7 @@ impl BlocksState {
     }
 
     fn hold(&mut self) {
-        if self.mode == Mode::Hard {
+        if !self.mode.assists() {
             return;
         }
         // check to see if the player has used the hold action
@@ -1106,7 +1136,7 @@ impl BlocksState {
             held: &self.held_rustomino,
             game_over: self.effects.game_over.as_ref(),
             style: &self.style,
-            assists: self.mode != Mode::Hard,
+            assists: self.mode.assists(),
             level_progress: &self.level_progress,
             effects: &self.effects,
             level_display: &self.level_display,
@@ -1201,7 +1231,7 @@ impl BlocksState {
     /// apply saved options
     fn apply_settings(&mut self) {
         let settings = &self.settings;
-        if let Some(mode) = style::from_name(&Mode::ALL, &settings.mode, Mode::name) {
+        if let Some(mode) = Mode::from_settings(&settings.game_mode, &settings.mode) {
             self.mode = mode;
         }
         if let Some(theme) = MUSIC_THEMES
@@ -1237,7 +1267,8 @@ impl BlocksState {
             return;
         }
         let settings = &mut self.settings;
-        settings.mode = self.mode.name().to_string();
+        settings.game_mode = self.mode.name().to_string();
+        settings.mode = self.mode.old_name().to_string();
         settings.theme = MUSIC_THEMES[self.assets.theme].0.to_string();
         settings.background = self.background.style.name().to_string();
         settings.blocks = self.style.block.name().to_string();
@@ -1634,11 +1665,57 @@ fn music_speed(level: usize) -> f32 {
 /// returns fractional seconds
 fn gravity_delay(level: usize, mode: Mode) -> f64 {
     let level = match mode {
-        Mode::Standard => level.min(STANDARD_TOP_LEVEL),
-        Mode::Hard => level,
+        Mode::Extreme => level,
+        _ => level.min(TOP_LEVEL),
     };
     let n = level as i32 - 1;
     let gravity_delay = (0.8 - n as f64 * 0.007).powi(n).max(MIN_GRAVITY_DELAY);
     log::info!("new gravity_delay {}", gravity_delay);
     gravity_delay
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mode_names_round_trip() {
+        for mode in Mode::ALL {
+            assert_eq!(Mode::from_settings(mode.name(), ""), Some(mode));
+        }
+    }
+
+    #[test]
+    fn old_settings_carry_over() {
+        // saved before there were four modes
+        assert_eq!(Mode::from_settings("", "Standard"), Some(Mode::Normal));
+        assert_eq!(Mode::from_settings("", "Hard"), Some(Mode::Extreme));
+        assert_eq!(Mode::from_settings("", ""), None);
+        // the new name wins over the old one
+        assert_eq!(Mode::from_settings("Hard", "Standard"), Some(Mode::Hard));
+    }
+
+    #[test]
+    fn old_names_read_back_as_close_modes() {
+        assert_eq!(Mode::Extreme.old_name(), "Hard");
+        for mode in [Mode::Normal, Mode::Medium, Mode::Hard] {
+            assert_eq!(mode.old_name(), "Standard");
+        }
+    }
+
+    #[test]
+    fn only_extreme_drops_the_assists() {
+        for mode in Mode::ALL {
+            assert_eq!(mode.assists(), mode != Mode::Extreme);
+        }
+    }
+
+    #[test]
+    fn only_extreme_keeps_speeding_up() {
+        for mode in [Mode::Normal, Mode::Medium, Mode::Hard] {
+            assert_eq!(gravity_delay(20, mode), gravity_delay(TOP_LEVEL, mode));
+        }
+        assert!(gravity_delay(20, Mode::Extreme) < gravity_delay(TOP_LEVEL, Mode::Extreme));
+        assert!(gravity_delay(19, Mode::Extreme) <= MIN_GRAVITY_DELAY);
+    }
 }
