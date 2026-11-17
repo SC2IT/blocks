@@ -1,5 +1,5 @@
 use ggez::glam::Vec2;
-use ggez::graphics::{self, Canvas, Color, DrawMode, Rect};
+use ggez::graphics::{self, Color, DrawMode, Rect};
 use ggez::{Context, GameResult};
 
 use crate::playfield;
@@ -19,7 +19,7 @@ use text::*;
 use widgets::*;
 
 pub use background::{clear_color, draw_background, storm_strike_time, StrikeKind};
-pub use batch::{begin_frame, end_frame, take_draw_count};
+pub use batch::{take_draw_count, Batch, Painter};
 pub use board::GameLayer;
 pub use screens::{
     DebugScreen, FrameStats, GameOverScreen, HighScoresScreen, MenuScreen, NameEntryScreen,
@@ -67,7 +67,7 @@ pub struct Frame<'a> {
 
 /// a screen or overlay, drawn over the background
 pub trait Layer {
-    fn draw(&self, canvas: &mut Canvas, frame: &Frame) -> GameResult;
+    fn draw(&self, canvas: &mut Painter, frame: &Frame) -> GameResult;
 }
 
 #[derive(Debug)]

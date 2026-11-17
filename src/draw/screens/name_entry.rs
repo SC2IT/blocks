@@ -1,5 +1,5 @@
 use ggez::glam::Vec2;
-use ggez::graphics::{Canvas, Color, Rect};
+use ggez::graphics::{Color, Rect};
 use ggez::GameResult;
 
 use crate::scores::{Initials, MAX_INITIALS};
@@ -24,7 +24,7 @@ pub struct NameEntryScreen<'a> {
 }
 
 impl Layer for NameEntryScreen<'_> {
-    fn draw(&self, canvas: &mut Canvas, frame: &Frame) -> GameResult {
+    fn draw(&self, canvas: &mut Painter, frame: &Frame) -> GameResult {
         let Self { initials, score } = *self;
         let ctx = frame.ctx;
         let meshes = frame.meshes;
@@ -107,7 +107,7 @@ impl Layer for NameEntryScreen<'_> {
 }
 
 /// twinkling plus shapes along the panel edge
-pub(super) fn draw_sparkles(canvas: &mut Canvas, meshes: &Meshes, panel: Rect, time: f32) {
+pub(super) fn draw_sparkles(canvas: &mut Painter, meshes: &Meshes, panel: Rect, time: f32) {
     for i in 0..SPARKLE_COUNT {
         let along = hash(i, 1.0);
         let pos = if i % 2 == 0 {

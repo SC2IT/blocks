@@ -1,5 +1,5 @@
 use ggez::glam::Vec2;
-use ggez::graphics::{self, Canvas, Color, Rect};
+use ggez::graphics::{self, Color, Rect};
 
 use crate::style::BlockStyle;
 
@@ -15,7 +15,7 @@ pub(super) fn snap_line(start: f32) -> (f32, f32) {
     (snap(start + BLOCK_PADDING) - width, width)
 }
 
-pub(super) fn draw_rect(canvas: &mut Canvas, meshes: &Meshes, rect: Rect, color: Color) {
+pub(super) fn draw_rect(canvas: &mut Painter, meshes: &Meshes, rect: Rect, color: Color) {
     draw_mesh(
         canvas,
         &meshes.rect,
@@ -64,7 +64,7 @@ pub(super) fn tint(color: Color, amount: f32) -> Color {
     )
 }
 
-pub(super) fn draw_rounded(canvas: &mut Canvas, meshes: &Meshes, rect: Rect, color: Color) {
+pub(super) fn draw_rounded(canvas: &mut Painter, meshes: &Meshes, rect: Rect, color: Color) {
     draw_mesh(
         canvas,
         &meshes.rounded,
@@ -86,7 +86,7 @@ pub(super) fn inset(rect: Rect, by: f32) -> Rect {
 
 /// rect edges of the given width, as non-overlapping rects
 pub(super) fn draw_outline(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     rect: Rect,
     width: f32,
@@ -105,7 +105,7 @@ pub(super) fn draw_outline(
 
 /// block in the selected style, edges scale with the block size
 pub(super) fn draw_block(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     rect: Rect,
     color: Color,

@@ -1,4 +1,4 @@
-use ggez::graphics::{Canvas, Color, Rect};
+use ggez::graphics::{Color, Rect};
 use ggez::{Context, GameResult};
 
 use crate::menus::Menu;
@@ -15,18 +15,18 @@ pub(super) const PAUSED_OVERLAY_COLOR: Color = Color::new(0.1, 0.1, 0.1, 0.6);
 pub struct Overlay;
 
 impl Layer for Overlay {
-    fn draw(&self, canvas: &mut Canvas, frame: &Frame) -> GameResult {
+    fn draw(&self, canvas: &mut Painter, frame: &Frame) -> GameResult {
         draw_overlay(canvas, frame.meshes, &frame.view.view_rect);
         Ok(())
     }
 }
 
-pub(super) fn draw_overlay(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect) {
+pub(super) fn draw_overlay(canvas: &mut Painter, meshes: &Meshes, view_rect: &Rect) {
     draw_overlay_alpha(canvas, meshes, view_rect, 1.0);
 }
 
 pub(super) fn draw_overlay_alpha(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     view_rect: &Rect,
     alpha: f32,
@@ -35,7 +35,7 @@ pub(super) fn draw_overlay_alpha(
     draw_rect(canvas, meshes, *view_rect, color);
 }
 
-pub(super) fn draw_panel(canvas: &mut Canvas, meshes: &Meshes, rect: Rect) {
+pub(super) fn draw_panel(canvas: &mut Painter, meshes: &Meshes, rect: Rect) {
     draw_rect(canvas, meshes, frame_rect(rect), FRAME_COLOR);
     draw_rect(canvas, meshes, rect, PANEL_COLOR);
 }
@@ -63,7 +63,7 @@ pub(super) fn menu_row_rect(panel: Rect, row: usize, row_height: f32) -> Rect {
 /// highlight bar with a bobbing gold block at each end
 pub(super) fn draw_selection(
     ctx: &Context,
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     row: Rect,
     style: BlockStyle,
@@ -74,7 +74,7 @@ pub(super) fn draw_selection(
 /// selection bar, with the bobbing blocks at its ends or hugging a centered word
 pub(super) fn draw_selection_around(
     ctx: &Context,
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     row: Rect,
     word_width: Option<f32>,
@@ -108,7 +108,7 @@ pub(super) fn draw_selection_around(
 
 pub(super) fn draw_menu_list<T: Menu>(
     ctx: &Context,
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     menu: &T,
     panel: Rect,
@@ -131,7 +131,7 @@ pub(super) fn draw_menu_list<T: Menu>(
 
 /// row of blocks filled up to the level, right aligned to right_x
 pub(super) fn draw_slider(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     right_x: f32,
     center_y: f32,

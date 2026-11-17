@@ -1,5 +1,5 @@
 use ggez::glam::Vec2;
-use ggez::graphics::{Canvas, Color, Rect};
+use ggez::graphics::{Color, Rect};
 use ggez::GameResult;
 
 use crate::scores::{ScoreBoard, MAX_SCORES};
@@ -22,7 +22,7 @@ pub struct HighScoresScreen<'a> {
 }
 
 impl Layer for HighScoresScreen<'_> {
-    fn draw(&self, canvas: &mut Canvas, frame: &Frame) -> GameResult {
+    fn draw(&self, canvas: &mut Painter, frame: &Frame) -> GameResult {
         let Self { scores, highlight } = *self;
         let ctx = frame.ctx;
         let meshes = frame.meshes;
@@ -46,7 +46,7 @@ impl Layer for HighScoresScreen<'_> {
         draw_panel(canvas, meshes, panel);
 
         // right aligned cells
-        let draw_row = |canvas: &mut Canvas,
+        let draw_row = |canvas: &mut Painter,
                         row: Rect,
                         cells: [&str; 5],
                         size: f32,

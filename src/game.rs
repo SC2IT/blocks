@@ -9,6 +9,7 @@ use ggez::{
     winit, Context, GameResult,
 };
 use std::{
+    cell::RefCell,
     collections::HashMap,
     time::{Duration, Instant},
 };
@@ -304,6 +305,7 @@ pub struct BlocksState {
     play_unfocused: bool, // music keeps playing when the window loses focus
     view_settings: draw::ViewSettings,
     meshes: draw::Meshes,
+    batch: RefCell<draw::Batch>, // draw_scene borrows the rest of the state
     rustomino_bag: RustominoBag,
     mode: Mode,
     gravity_delay: f64, // time between gravity ticks
@@ -409,6 +411,7 @@ impl BlocksState {
             play_unfocused: false,
             view_settings: draw::ViewSettings::new(width, height),
             meshes: draw::Meshes::new(ctx)?,
+            batch: RefCell::default(),
             score: 0,
             score_display: ScoreDisplay::new(0),
             level_display: ScoreDisplay::new(STARTING_LEVEL),
@@ -970,8 +973,10 @@ impl BlocksState {
         }
     }
     fn draw_scene(&self, ctx: &mut Context, canvas: &mut graphics::Canvas) -> GameResult {
-        draw::begin_frame(ctx);
         canvas.set_screen_coordinates(self.view_settings.view_rect);
+        let mut batch = self.batch.borrow_mut();
+        let mut painter = batch.begin(ctx, canvas);
+        let canvas = &mut painter;
         draw::set_pixel_scale(self.view_settings.scale);
         draw::draw_background(
             canvas,
@@ -1068,7 +1073,7 @@ impl BlocksState {
         }
 
         // batched draws still queued
-        draw::end_frame(canvas);
+        painter.end();
         Ok(())
     }
 

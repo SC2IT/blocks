@@ -1,5 +1,5 @@
 use ggez::glam::Vec2;
-use ggez::graphics::{Canvas, Color, Rect};
+use ggez::graphics::{Color, Rect};
 use ggez::GameResult;
 
 use crate::game::Mode;
@@ -42,7 +42,7 @@ pub struct OptionsScreen<'a> {
 }
 
 impl Layer for OptionsScreen<'_> {
-    fn draw(&self, canvas: &mut Canvas, frame: &Frame) -> GameResult {
+    fn draw(&self, canvas: &mut Painter, frame: &Frame) -> GameResult {
         let Self {
             title,
             menu,

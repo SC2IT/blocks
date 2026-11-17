@@ -1,5 +1,5 @@
 use ggez::glam::Vec2;
-use ggez::graphics::{self, Canvas, Color, Rect};
+use ggez::graphics::{self, Color, Rect};
 
 use crate::background::{Background, STAR_FIELDS};
 use crate::rustomino::RustominoType;
@@ -100,7 +100,7 @@ impl Scenery for Stars {
 
     fn draw(
         &self,
-        canvas: &mut Canvas,
+        canvas: &mut Painter,
         meshes: &Meshes,
         view_rect: &Rect,
         background: &Background,
@@ -109,7 +109,7 @@ impl Scenery for Stars {
     }
 }
 
-fn draw_stars(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background: &Background) {
+fn draw_stars(canvas: &mut Painter, meshes: &Meshes, view_rect: &Rect, background: &Background) {
     let center = Vec2::new(
         view_rect.x + view_rect.w / 2.0,
         view_rect.y + view_rect.h / 2.0,
@@ -173,7 +173,7 @@ fn draw_stars(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background
 
 /// soft clouds behind a star field, drawn additively
 pub(super) fn draw_nebula(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     view_rect: &Rect,
     background: &Background,
@@ -226,7 +226,7 @@ pub(super) fn draw_nebula(
 
 /// a star streaking out from the center, head first, tail catching up
 pub(super) fn draw_warp_star(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     view_rect: &Rect,
     center: Vec2,
