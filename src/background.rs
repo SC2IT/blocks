@@ -59,8 +59,9 @@ pub struct Background {
     pub wind: f32,         // storm clocks, sped up by the storm so changes stay smooth
     pub rain: f32,
     pub sea: f32,
-    pub bolt: f32,     // lightning clock, strikes come faster as the storm builds
-    pub whiteout: f32, // 0.0 to 1.0 past a full storm, rain and spray blot out the view
+    pub bolt: f32,         // lightning clock, strikes come faster as the storm builds
+    pub whiteout: f32,     // 0.0 to 1.0 past a full storm, rain and spray blot out the view
+    pub low_sensory: bool, // held still in full color, the level still sets the storm
 }
 
 impl Background {
@@ -83,6 +84,7 @@ impl Background {
             sea: 0.0,
             bolt: 0.0,
             whiteout: 0.0,
+            low_sensory: false,
         }
     }
 
@@ -98,6 +100,10 @@ impl Background {
 
     pub fn update(&mut self, delta_time: f64, level: usize) {
         let dt = delta_time as f32;
+        if self.low_sensory {
+            self.hold(dt, level);
+            return;
+        }
         let speed = self.speed(level);
         let before = self.time;
         self.time += dt
@@ -110,10 +116,7 @@ impl Background {
             };
         self.twinkle += dt * speed;
         // the storm builds with the level, wind, rain and sea speed up with it
-        // front loaded: most of the build comes in the first few levels
-        let target = ((level.max(1) - 1) as f32 / STORM_LEVELS)
-            .min(1.0)
-            .powf(0.7);
+        let (target, white) = storm_targets(level);
         self.storm += (target - self.storm) * (dt * STORM_RAMP).min(1.0);
         // the sea settles into the new level's state as the level up plays out
         let sea_ramp = if self.level_up.is_some() {
@@ -122,11 +125,6 @@ impl Background {
             STORM_RAMP
         };
         self.sea_storm += (target - self.sea_storm) * (dt * sea_ramp).min(1.0);
-        let level = level.max(1) as f32;
-        // creeps in slowly at first, then closes in
-        let white = ((level - WHITEOUT_START + 1.0) / WHITEOUT_LEVELS)
-            .clamp(0.0, 1.0)
-            .powf(1.5);
         self.whiteout += (white - self.whiteout) * (dt * STORM_RAMP).min(1.0);
         let step = self.time - before;
         // a level up heaves the sea
@@ -147,6 +145,24 @@ impl Background {
         }
     }
 
+    /// low sensory: the clocks stand still and the storm steps straight to the level
+    fn hold(&mut self, dt: f32, level: usize) {
+        let (storm, white) = storm_targets(level);
+        self.storm = storm;
+        self.sea_storm = storm;
+        self.whiteout = white;
+        self.energy = 0.0;
+        self.level_up = None;
+        match self.thaw {
+            Some(t) if t + dt >= THAW_TIME => {
+                self.freeze = None;
+                self.thaw = None;
+            }
+            Some(t) => self.thaw = Some(t + dt),
+            None => self.freeze = self.freeze.map(|t| t + dt),
+        }
+    }
+
     /// update in small steps
     pub fn skip(&mut self, secs: f32, level: usize) {
         for _ in 0..(secs / SKIP_STEP).round() as usize {
@@ -157,7 +173,11 @@ impl Background {
     /// game over
     pub fn freeze(&mut self, level: usize) {
         self.freeze = Some(0.0);
-        self.freeze_rate = self.speed(level);
+        self.freeze_rate = if self.low_sensory {
+            0.0
+        } else {
+            self.speed(level)
+        };
         self.frozen_at = self.time;
         self.level_up = None;
         self.thaw = None;
@@ -197,7 +217,9 @@ impl Background {
     }
 
     pub fn level_up(&mut self) {
-        self.level_up = Some(0.0);
+        if !self.low_sensory {
+            self.level_up = Some(0.0);
+        }
         self.stars = (self.stars + 1) % STAR_FIELDS;
     }
 
@@ -221,12 +243,64 @@ impl Background {
 
     /// line clear surge
     pub fn surge(&mut self, lines: usize) {
+        if self.low_sensory {
+            return;
+        }
         let energy = SURGE[lines.clamp(1, SURGE.len()) - 1];
         self.energy = self.energy.max(energy);
     }
 }
 
+/// storm strength and whiteout the level builds to
+fn storm_targets(level: usize) -> (f32, f32) {
+    // front loaded: most of the build comes in the first few levels
+    let storm = ((level.max(1) - 1) as f32 / STORM_LEVELS)
+        .min(1.0)
+        .powf(0.7);
+    // creeps in slowly at first, then closes in
+    let white = ((level.max(1) as f32 - WHITEOUT_START + 1.0) / WHITEOUT_LEVELS)
+        .clamp(0.0, 1.0)
+        .powf(1.5);
+    (storm, white)
+}
+
 fn smoothstep(x: f32) -> f32 {
     let t = x.clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn low_sensory_holds_still() {
+        let mut background = Background::new();
+        background.low_sensory = true;
+        background.level_up();
+        background.surge(4);
+        background.update(1.0, 12);
+        let clocks = (
+            background.time,
+            background.twinkle,
+            background.wind,
+            background.rain,
+        );
+        assert_eq!(clocks, (0.0, 0.0, 0.0, 0.0));
+        assert_eq!((background.sea, background.bolt), (0.0, 0.0));
+        assert_eq!((background.energy, background.wave()), (0.0, None));
+        // the level still sets the storm, straight away
+        assert_eq!(background.storm, 1.0);
+        assert_eq!(background.sea_storm, 1.0);
+    }
+
+    #[test]
+    fn low_sensory_game_over_stays_put() {
+        let mut background = Background::new();
+        background.low_sensory = true;
+        background.freeze(10);
+        background.update(1.0, 10);
+        assert_eq!(background.frozen_time(5.0), background.frozen_time(0.0));
+        assert!(background.chill() > 0.0);
+    }
 }

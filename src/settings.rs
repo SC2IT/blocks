@@ -40,6 +40,7 @@ pub struct Settings {
     pub music_level: u8,
     pub sound_level: u8,
     pub play_unfocused: bool, // keep the music playing when the window loses focus
+    pub low_sensory: bool,    // backgrounds and glitches held still
     pub initials: String,
     pub window: WindowState,
 }
@@ -56,6 +57,7 @@ impl Default for Settings {
             music_level: crate::game::DEFAULT_VOLUME_LEVEL,
             sound_level: crate::game::DEFAULT_VOLUME_LEVEL,
             play_unfocused: false,
+            low_sensory: false,
             initials: String::new(),
             window: WindowState::default(),
         }
@@ -136,6 +138,7 @@ mod tests {
             music_level: 3,
             sound_level: 7,
             play_unfocused: true,
+            low_sensory: true,
             initials: "ABC".into(),
             window: WindowState {
                 width: 1280.0,
@@ -156,6 +159,7 @@ mod tests {
         assert_eq!(settings.sound_level, 5);
         // older settings files keep the music focus only
         assert!(!settings.play_unfocused);
+        assert!(!settings.low_sensory);
         assert_eq!(settings.window, WindowState::default());
     }
 }

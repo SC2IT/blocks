@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Low Sensory option on the Options page. It holds the background still in
+  full color, with no line clear surge or level up rush; the level still sets
+  the storm, which keeps one lightning bolt lit. Glitch pieces hold their color
+  split without bursting, tough blocks' static holds, and the board no longer
+  shakes. Saved as `low_sensory` in `settings.toml`.
 - Four modes: Normal, Medium, Hard and Extreme. Extreme plays like the old
   Hard mode, speeding up to instant drops by level 19 with no hold or ghost
   piece. Normal, Medium and Hard keep hold and the ghost piece and stop

@@ -268,6 +268,15 @@ fn tough_pieces(playfield: &Playfield) -> Vec<Vec<(usize, usize)>> {
     pieces
 }
 
+/// how often glitch pieces burst, none under the game over curtain or in low sensory
+fn glitch_calm(game_over: Option<&GameOver>, scene: &ToughScene) -> f32 {
+    if game_over.is_some() || scene.background.low_sensory {
+        0.0
+    } else {
+        1.0
+    }
+}
+
 /// a block of a glitch piece, calm scales how often it bursts
 #[allow(clippy::too_many_arguments)]
 fn draw_glitch_block(
@@ -340,8 +349,8 @@ pub(super) fn draw_playfield(
     time: f32,
     scene: &ToughScene,
 ) {
-    // glitch pieces stop glitching under the game over curtain
-    let calm = if game_over.is_some() { 0.0 } else { 1.0 };
+    // glitch pieces stop glitching under the game over curtain, low sensory holds them split
+    let calm = glitch_calm(game_over, scene);
     let (staging_rect, playfield_rect) =
         (&view_settings.staging_rect, &view_settings.playfield_rect);
     // draw the locked blocks
@@ -677,7 +686,7 @@ pub(super) fn draw_preview(
             if rustomino.rtype == RustominoType::Glitch {
                 // seeded by the panel so next and hold glitch apart
                 let seed = 2000 + i + preview_rect.x as usize;
-                let calm = if game_over.is_some() { 0.0 } else { 1.0 };
+                let calm = glitch_calm(game_over, scene);
                 draw_glitch_block(canvas, meshes, rect, color, style, time, seed, calm);
             } else {
                 draw_block(canvas, meshes, rect, color, style);

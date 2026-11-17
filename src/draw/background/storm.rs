@@ -55,6 +55,7 @@ pub(super) const BOLT_SEGMENTS: usize = 16;
 pub(super) const BOLT_COLOR: Color = Color::new(0.85, 0.9, 1.0, 1.0);
 pub(super) const BOLT_GLOW_COLOR: Color = Color::new(0.55, 0.65, 1.0, 1.0);
 pub(super) const BOLT_BLOOM: [(f32, f32); 2] = [(14.0, 0.3), (4.0, 0.6)]; // (width in bolt sizes, strength)
+const HELD_STRIKE: f32 = 0.6; // brightness of the low sensory bolt, the sky glows without flashing white
 pub(in crate::draw) const FLASH_COLOR: Color = Color::new(0.75, 0.82, 1.0, 1.0);
 
 /// lightning strike at a moment: (strike number, brightness 0.0 to 1.0)
@@ -72,6 +73,18 @@ pub(in crate::draw) fn storm_strike(time: f32) -> Option<(usize, f32)> {
     let fade = (1.0 - age / STRIKE_TIME).powi(2);
     let flicker = 0.65 + 0.35 * (age * 45.0).cos();
     Some((k, (fade * flicker).clamp(0.0, 1.0)))
+}
+
+/// the strike showing: low sensory holds one fork bolt, part way through its fade
+pub(in crate::draw) fn background_strike(background: &Background) -> Option<(usize, f32)> {
+    if !background.low_sensory {
+        return storm_strike(background.bolt);
+    }
+    (0..10_000)
+        .find(|k| {
+            hash(*k, 21.0) <= STRIKE_CHANCE && strike_kind(*k, background.storm) == StrikeKind::Fork
+        })
+        .map(|k| (k, HELD_STRIKE))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -159,7 +172,7 @@ fn draw_storm(canvas: &mut Painter, meshes: &Meshes, view_rect: &Rect, backgroun
     let (x0, w, h) = (view_rect.x, view_rect.w, view_rect.h);
     let sea_top = view_rect.y + h * SEA_LEVEL;
     let sea_h = view_rect.y + h - sea_top;
-    let strike = storm_strike(background.bolt)
+    let strike = background_strike(background)
         .map(|(k, bright)| (k, bright, strike_kind(k, background.storm)));
     // line clears light up the clouds too
     // level up: a white-out flash at the start, then a barrage of strikes

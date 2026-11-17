@@ -5,8 +5,9 @@ pub const OPTION_MODE: usize = 0;
 pub const OPTION_BACKGROUND: usize = 1;
 pub const OPTION_BLOCKS: usize = 2;
 pub const OPTION_BOARD: usize = 3;
-pub const OPTION_AUDIO: usize = 4;
-pub const OPTION_BACK: usize = 5;
+pub const OPTION_LOW_SENSORY: usize = 4;
+pub const OPTION_AUDIO: usize = 5;
+pub const OPTION_BACK: usize = 6;
 
 // audio submenu rows
 pub const AUDIO_THEME: usize = 0;
@@ -45,7 +46,15 @@ impl MenuList {
     }
 
     pub fn options() -> Self {
-        Self::new(&["Mode", "Background", "Blocks", "Board", "Audio", "Back"])
+        Self::new(&[
+            "Mode",
+            "Background",
+            "Blocks",
+            "Board",
+            "Low Sensory",
+            "Audio",
+            "Back",
+        ])
     }
 
     pub fn audio() -> Self {

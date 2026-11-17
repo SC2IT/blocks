@@ -9,7 +9,7 @@ use crate::rustomino::RustominoType;
 use strum::IntoEnumIterator;
 
 use super::background::{
-    sea_wave, storm_strike, CREST_COLOR, FLASH_COLOR, SEA_LAYERS, WHITEOUT_COLOR,
+    background_strike, sea_wave, CREST_COLOR, FLASH_COLOR, SEA_LAYERS, WHITEOUT_COLOR,
 };
 use super::*;
 
@@ -228,7 +228,7 @@ fn storm(
         }
     }
     // a flash when lightning strikes, then frost and the whiteout over it all
-    if let Some((_, flash)) = storm_strike(background.bolt) {
+    if let Some((_, flash)) = background_strike(background) {
         draw_rect(canvas, meshes, block, with_alpha(FLASH_COLOR, 0.35 * flash));
     }
     draw_rect(canvas, meshes, block, with_alpha(Color::WHITE, STORM_FROST));

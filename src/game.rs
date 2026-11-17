@@ -46,6 +46,15 @@ const MIN_GRAVITY_DELAY: f64 = 1.0 / 1200.0; // 20 rows per 60th of a second
 const STARTING_LEVEL: usize = 1;
 const TOP_LEVEL: usize = 15; // every mode but extreme stops speeding up here
 const DEFAULT_MODE: Mode = Mode::Normal; // until a mode is picked
+const LOW_SENSORY_TIME: f32 = 3.0; // seconds, the moment low sensory holds the board at
+
+fn on_off(on: bool) -> &'static str {
+    if on {
+        "On"
+    } else {
+        "Off"
+    }
+}
 const LINES_PER_LEVEL: usize = 10; // number of lines that need to be cleared before level advances
 const LOCKDOWN_DELAY: f64 = 0.5; // how long to wait before locking block (guideline)
 const LINE_CLEAR_DELAY: f64 = 0.4; // how long completed lines stay before being removed
@@ -1145,8 +1154,13 @@ impl BlocksState {
             level_display: &self.level_display,
             score_display: &self.score_display,
             best: self.scores.best().max(self.score_display.shown()),
-            shake: shaking.then(|| self.effects.shake()),
-            glitch_time: self.screenshot.as_ref().map(|_| screenshot::glitch_time()),
+            // low sensory holds the board still
+            shake: (shaking && !self.background.low_sensory).then(|| self.effects.shake()),
+            glitch_time: match (&self.screenshot, self.background.low_sensory) {
+                (Some(_), _) => Some(screenshot::glitch_time()),
+                (None, true) => Some(LOW_SENSORY_TIME),
+                (None, false) => None,
+            },
             background: &self.background,
         }
     }
@@ -1185,6 +1199,7 @@ impl BlocksState {
             menus::OPTION_BLOCKS => {
                 self.style.block = style::cycle(&BlockStyle::ALL, self.style.block, delta as isize)
             }
+            menus::OPTION_LOW_SENSORY => self.background.low_sensory = !self.background.low_sensory,
             menus::OPTION_BOARD => {
                 self.style.board = style::cycle(&BoardStyle::ALL, self.style.board, delta as isize)
             }
@@ -1226,6 +1241,7 @@ impl BlocksState {
                 OptionRow::Choice(self.background.style.name(), false),
                 OptionRow::Choice(self.style.block.name(), false),
                 OptionRow::Choice(self.style.board.name(), false),
+                OptionRow::Choice(on_off(self.background.low_sensory), false),
                 // opens the audio page
                 OptionRow::Link,
                 OptionRow::Back,
@@ -1260,6 +1276,7 @@ impl BlocksState {
             self.style.board = board;
         }
         self.play_unfocused = settings.play_unfocused;
+        self.background.low_sensory = settings.low_sensory;
         self.music_level = settings.music_level.min(VOLUME_LEVELS);
         self.sound_level = settings.sound_level.min(VOLUME_LEVELS);
         self.assets.set_music_level(self.music_level);
@@ -1281,6 +1298,7 @@ impl BlocksState {
         settings.music_level = self.music_level;
         settings.sound_level = self.sound_level;
         settings.play_unfocused = self.play_unfocused;
+        settings.low_sensory = self.background.low_sensory;
         settings.save();
     }
 
