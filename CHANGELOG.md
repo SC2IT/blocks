@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of seven.
 - `glitch` screenshot scene, with `GLITCH_TIME` to pick the moment.
 - Animation viewer (F12 from the menu): G picks the test piece for the
-  falling animations, T or any glitch shape; a Glitch Pieces entry shows
+  falling animations, any of the seven pieces or any glitch shape; a Glitch Pieces entry shows
   all seven shapes at once; and N starts a game where every piece is a
   glitch piece.
 

@@ -146,7 +146,7 @@ pub struct DebugView {
     landed: Option<f64>, // when the falling piece locked
     step: f64,           // soft drop repeat
     surges: usize,       // background cues fired
-    piece: usize,        // test piece for the falling animations: 0 is a T, then the glitch shapes
+    piece: usize, // test piece for the falling animations: the seven pieces, then the glitch shapes
     saved: Option<(ScoreBoard, Style, BackgroundStyle)>, // restored on close
     pub stats: FrameStats,
     pub recording: Option<Recording>, // frame samples going to a csv
@@ -332,7 +332,7 @@ impl DebugView {
             landed: None,
             step: 0.0,
             surges: 0,
-            piece: 0,
+            piece: RustominoType::T as usize,
             saved: None,
             stats: FrameStats::default(),
             recording: None,
@@ -352,22 +352,26 @@ impl DebugView {
         FPS[self.fps]
     }
 
-    fn glitch_shape(&self) -> Option<GlitchShape> {
-        self.piece
-            .checked_sub(1)
-            .and_then(|i| GlitchShape::iter().nth(i))
+    /// the test pieces G steps through: the seven pieces, then the glitch shapes
+    fn test_pieces() -> Vec<Rustomino> {
+        RustominoType::iter()
+            .map(Rustomino::new)
+            .chain(GlitchShape::iter().map(Rustomino::glitch))
+            .collect()
     }
 
     /// the piece the falling animations drop
     fn test_piece(&self) -> Rustomino {
-        self.glitch_shape()
-            .map_or_else(|| Rustomino::new(RustominoType::T), Rustomino::glitch)
+        Self::test_pieces().swap_remove(self.piece)
     }
 
     /// the test piece's name, for the panel
     pub fn piece_name(&self) -> String {
-        self.glitch_shape()
-            .map_or_else(|| "T".to_string(), |shape| format!("{shape:?}"))
+        let piece = self.test_piece();
+        match piece.glitch {
+            Some(shape) => format!("{shape:?}"),
+            None => format!("{:?}", piece.rtype),
+        }
     }
 }
 
@@ -676,7 +680,7 @@ impl BlocksState {
             }
             KeyCode::KeyG if !repeated => {
                 // pick the test piece for the falling animations
-                let count = GlitchShape::iter().count() + 1;
+                let count = DebugView::test_pieces().len();
                 self.debug.piece = if shift {
                     (self.debug.piece + count - 1) % count
                 } else {
