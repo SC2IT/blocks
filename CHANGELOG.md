@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Hard mode, speeding up to instant drops by level 19 with no hold or ghost
   piece. Normal, Medium and Hard keep hold and the ghost piece and stop
   speeding up at level 15.
+- Glitch pieces: now and then an odd four-block piece turns up, its blocks
+  joined only at the corners or broken by gaps. Glitch pieces flicker in
+  magenta and cyan and burst with jumps, color flashes and tears. Drip, an
+  I with its end dropped a row, turns up in every mode; Medium adds Split,
+  Kink and Hook, and Hard and Extreme add Antlers, Diamond and Corners.
+  About 1 in 40 pieces is a glitch at level 1, rising to 1 in 12 by level
+  15, never two in a row, and the regular pieces still come in fair sets
+  of seven.
+- `glitch` screenshot scene, with `GLITCH_TIME` to pick the moment.
 
 - Storm level up: a white flash, a barrage of six lightning bolts sweeping
   across the sea, and the sea heaving up into the new level's state.

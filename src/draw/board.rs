@@ -9,6 +9,7 @@ use crate::rustomino::{Rustomino, RustominoType};
 use crate::score_display::ScoreDisplay;
 use crate::style::{BlockStyle, BoardStyle, Style};
 use crate::util;
+use strum::IntoEnumIterator;
 
 use super::*;
 
@@ -34,6 +35,16 @@ pub(super) const TRAIL_SEGMENTS: usize = 8;
 pub(super) const TRAIL_ALPHA: f32 = 0.45;
 pub(super) const IMPACT_ALPHA: f32 = 0.6;
 pub(super) const CURTAIN_FLASH: f32 = 0.6;
+// glitch pieces: split into magenta and cyan, with bursts of jumps, recolors and tears
+pub(super) const GLITCH_MAGENTA: Color = Color::new(1.0, 0.2, 0.75, 1.0);
+pub(super) const GLITCH_CYAN: Color = Color::new(0.2, 0.95, 1.0, 1.0);
+pub(super) const GLITCH_SPLIT: f32 = 3.0; // px between the block and each color copy
+pub(super) const GLITCH_SPLIT_ALPHA: f32 = 0.75;
+pub(super) const GLITCH_RATE: f32 = 12.0; // glitch frames per second
+pub(super) const GLITCH_BURST: f32 = 0.2; // share of frames a block bursts
+pub(super) const GLITCH_JUMP: f32 = 0.2; // farthest a bursting block jumps, in blocks
+pub(super) const GLITCH_TEAR: f32 = 0.12; // height of a tear, in blocks
+pub(super) const GLITCH_LOCKED: f32 = 0.3; // locked glitch blocks burst this much as often
 pub(super) const PREVIEW_ROW: i32 = playfield::PLAYFIELD_SLOTS[1] as i32; // curtain reaches hold and next last
 pub(super) const BEST_OFFSET: f32 = 100.0; // above the score, clear of the popups
 
@@ -143,6 +154,67 @@ pub(super) fn draw_playing_backgound(
     }
 }
 
+/// a block of a glitch piece, calm scales how often it bursts
+#[allow(clippy::too_many_arguments)]
+fn draw_glitch_block(
+    canvas: &mut Painter,
+    meshes: &Meshes,
+    rect: Rect,
+    color: Color,
+    style: BlockStyle,
+    time: f32,
+    seed: usize,
+    calm: f32,
+) {
+    let frame = (time * GLITCH_RATE).floor();
+    let n = |k: f32| hash(seed, frame * 0.731 + k);
+    let burst = n(1.0) < GLITCH_BURST * calm;
+    let (mut rect, mut color) = (rect, color);
+    if burst {
+        // jump sideways and maybe flash another piece's color
+        rect.x += (n(2.0) * 2.0 - 1.0) * GLITCH_JUMP * rect.w;
+        rect = snap_rect(rect);
+        if n(3.0) < 0.5 {
+            let types: Vec<RustominoType> = RustominoType::iter().collect();
+            let other = types[(n(4.0) * types.len() as f32) as usize % types.len()];
+            color = with_alpha(other.color(), color.a);
+        }
+    }
+    let split = snap(GLITCH_SPLIT * rect.w / BLOCK_SIZE * if burst { 2.0 } else { 1.0 });
+    let shifted = |dx: f32| Rect::new(rect.x + dx, rect.y, rect.w, rect.h);
+    let alpha = GLITCH_SPLIT_ALPHA * color.a;
+    draw_rect(
+        canvas,
+        meshes,
+        shifted(-split),
+        with_alpha(GLITCH_MAGENTA, alpha),
+    );
+    draw_rect(
+        canvas,
+        meshes,
+        shifted(split),
+        with_alpha(GLITCH_CYAN, alpha),
+    );
+    draw_block(canvas, meshes, rect, color, style);
+    if burst && n(5.0) < 0.5 {
+        // a bright tear across the block
+        let h = GLITCH_TEAR * rect.h;
+        let tear = Rect::new(
+            rect.x - 2.0 * split,
+            rect.y + n(6.0) * (rect.h - h),
+            rect.w + 4.0 * split,
+            h,
+        );
+        draw_rect(
+            canvas,
+            meshes,
+            snap_rect(tear),
+            with_alpha(Color::WHITE, 0.8 * color.a),
+        );
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 pub(super) fn draw_playfield(
     canvas: &mut Painter,
     meshes: &Meshes,
@@ -151,7 +223,10 @@ pub(super) fn draw_playfield(
     game_over: Option<&GameOver>,
     style: BlockStyle,
     ghost: bool,
+    time: f32,
 ) {
+    // glitch pieces stop glitching under the game over curtain
+    let calm = if game_over.is_some() { 0.0 } else { 1.0 };
     let (staging_rect, playfield_rect) =
         (&view_settings.staging_rect, &view_settings.playfield_rect);
     // draw the locked blocks
@@ -181,17 +256,28 @@ pub(super) fn draw_playfield(
                     color.a *= line_clear_alpha(line_clear, x);
                 }
                 let rect = playfield_block_rect([x as i32, y as i32], staging_rect, playfield_rect);
-                draw_block(canvas, meshes, rect, color, style);
+                if *rtype == RustominoType::Glitch && clearing.is_none() {
+                    let seed = y * playfield::PLAYFIELD_SLOTS[0] + x;
+                    let calm = calm * GLITCH_LOCKED;
+                    draw_glitch_block(canvas, meshes, rect, color, style, time, seed, calm);
+                } else {
+                    draw_block(canvas, meshes, rect, color, style);
+                }
             }
         }
     }
 
     // draw the active rustomino over the locked blocks
     if let Some(active) = &playfield.active_rustomino {
-        for block in active.playfield_slots() {
+        for (i, block) in active.playfield_slots().into_iter().enumerate() {
             let rect = playfield_block_rect([block[0], block[1]], staging_rect, playfield_rect);
             let color = block_color(active.rtype, game_over, block[1]);
-            draw_block(canvas, meshes, rect, color, style);
+            if active.rtype == RustominoType::Glitch {
+                let seed = 1000 + i;
+                draw_glitch_block(canvas, meshes, rect, color, style, time, seed, calm);
+            } else {
+                draw_block(canvas, meshes, rect, color, style);
+            }
         }
     }
 
@@ -301,6 +387,7 @@ pub(super) fn draw_preview(
     preview_rect: &Rect,
     game_over: Option<&GameOver>,
     style: BlockStyle,
+    time: f32,
 ) {
     if let Some(rustomino) = rustomino {
         // center the piece's bounding box in the panel
@@ -317,20 +404,22 @@ pub(super) fn draw_preview(
         let height = (max.y - min.y + 1) as f32 * cell - BLOCK_PADDING;
         let left = snap(preview_rect.x + (preview_rect.w - width) / 2.0);
         let top = snap(preview_rect.y + (preview_rect.h - height) / 2.0);
-        for block in rustomino.blocks {
+        let color = block_color(rustomino.rtype, game_over, PREVIEW_ROW);
+        for (i, block) in rustomino.blocks.iter().enumerate() {
             let rect = Rect::new(
                 left + (block.x - min.x) as f32 * cell,
                 top + (max.y - block.y) as f32 * cell,
                 block_size(),
                 block_size(),
             );
-            draw_block(
-                canvas,
-                meshes,
-                rect,
-                block_color(rustomino.rtype, game_over, PREVIEW_ROW),
-                style,
-            );
+            if rustomino.rtype == RustominoType::Glitch {
+                // seeded by the panel so next and hold glitch apart
+                let seed = 2000 + i + preview_rect.x as usize;
+                let calm = if game_over.is_some() { 0.0 } else { 1.0 };
+                draw_glitch_block(canvas, meshes, rect, color, style, time, seed, calm);
+            } else {
+                draw_block(canvas, meshes, rect, color, style);
+            }
         }
     }
 }
@@ -346,6 +435,7 @@ pub(super) fn draw_playing(
     game_over: Option<&GameOver>,
     style: &Style,
     assists: bool, // ghost and hold
+    time: f32,     // seconds, drives the glitch pieces
 ) {
     draw_playing_backgound(canvas, meshes, view_settings, style.board, assists);
     draw_playfield(
@@ -356,6 +446,7 @@ pub(super) fn draw_playing(
         game_over,
         style.block,
         assists,
+        time,
     );
     if assists {
         draw_preview(
@@ -365,6 +456,7 @@ pub(super) fn draw_playing(
             &view_settings.hold_rect,
             game_over,
             style.block,
+            time,
         );
     }
     draw_preview(
@@ -374,6 +466,7 @@ pub(super) fn draw_playing(
         &view_settings.preview_rect,
         game_over,
         style.block,
+        time,
     );
 }
 
@@ -652,7 +745,8 @@ pub struct GameLayer<'a> {
     pub level_display: &'a ScoreDisplay,
     pub score_display: &'a ScoreDisplay,
     pub best: usize,
-    pub shake: Option<Vec2>, // None when not shaking
+    pub shake: Option<Vec2>,      // None when not shaking
+    pub glitch_time: Option<f32>, // fixed clock for glitch pieces, None runs with the game
 }
 
 impl Layer for GameLayer<'_> {
@@ -674,6 +768,8 @@ impl Layer for GameLayer<'_> {
             self.game_over,
             self.style,
             self.assists,
+            self.glitch_time
+                .unwrap_or_else(|| frame.ctx.time.time_since_start().as_secs_f32()),
         );
         draw_level_progress(
             canvas,

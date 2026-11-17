@@ -1,6 +1,9 @@
-use ::rand::seq::SliceRandom;
+use ::rand::seq::{IndexedRandom, SliceRandom};
+use ::rand::RngExt;
 use ggez::{glam::IVec2, graphics::Color};
 use strum::{EnumIter, IntoEnumIterator};
+
+use crate::game::Mode;
 
 const I_START_TRANSLATION: IVec2 = IVec2::new(3, 18);
 const O_T_L_J_S_Z_START_TRANSLATION: IVec2 = IVec2::new(3, 19);
@@ -399,6 +402,69 @@ const I_WALL_KICK_TESTS: [[IVec2; 5]; 8] = [
     ],
 ];
 
+// glitch pieces: odd shapes that turn up now and then, more often at higher levels
+const GLITCH_CHANCE: f64 = 0.02; // chance per piece at level 0
+const GLITCH_CHANCE_PER_LEVEL: f64 = 0.004;
+const GLITCH_CHANCE_MAX: f64 = 0.08;
+
+/// shapes a glitch piece can take: four blocks like any piece, but joined only at
+/// corners or broken by gaps, so never one of the seven; most turn in a 3x3 box like
+/// J L S T Z, drip in a 4x4 box like I
+#[derive(Debug, Clone, Copy, EnumIter, PartialEq, Eq)]
+pub enum GlitchShape {
+    Drip,    // an I with its end dropped a row
+    Split,   // two columns with a gap between
+    Kink,    // a short wiggle with a block off one corner
+    Hook,    // two pairs, offset by a gap
+    Antlers, // a Y, two prongs on a stem
+    Diamond, // around a hollow center, joined at the corners
+    Corners, // the four corners of the box
+}
+
+impl GlitchShape {
+    /// the shapes a mode deals: drip in every mode, so glitches turn up from the start,
+    /// the gentle ones from medium, and the hollow and corner joined ones from hard
+    pub fn in_mode(mode: Mode) -> Vec<GlitchShape> {
+        GlitchShape::iter()
+            .filter(|shape| match mode {
+                Mode::Normal => *shape == GlitchShape::Drip,
+                Mode::Medium => shape.gentle(),
+                Mode::Hard | Mode::Extreme => true,
+            })
+            .collect()
+    }
+
+    /// mostly joined edge to edge, with one gap
+    fn gentle(self) -> bool {
+        matches!(
+            self,
+            GlitchShape::Drip | GlitchShape::Split | GlitchShape::Kink | GlitchShape::Hook
+        )
+    }
+
+    /// width of the box it turns in, 3 like J L S T Z or 4 like I
+    fn box_size(self) -> i32 {
+        match self {
+            GlitchShape::Drip => 4,
+            _ => 3,
+        }
+    }
+
+    // y is up, row 2 is the top of a 3x3 box, drip sits in the I's row of its 4x4 box
+    fn blocks(self) -> [IVec2; 4] {
+        let cells = match self {
+            GlitchShape::Drip => [(0, 2), (1, 2), (2, 2), (3, 1)],
+            GlitchShape::Split => [(0, 1), (0, 2), (2, 1), (2, 2)],
+            GlitchShape::Kink => [(0, 2), (1, 1), (2, 1), (1, 0)],
+            GlitchShape::Hook => [(0, 2), (1, 2), (1, 0), (2, 0)],
+            GlitchShape::Antlers => [(0, 2), (2, 2), (1, 1), (1, 0)],
+            GlitchShape::Diamond => [(1, 2), (0, 1), (2, 1), (1, 0)],
+            GlitchShape::Corners => [(0, 2), (2, 2), (0, 0), (2, 0)],
+        };
+        cells.map(|(x, y)| IVec2::new(x, y))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Rustomino {
     pub rtype: RustominoType,
@@ -406,10 +472,14 @@ pub struct Rustomino {
     pub rotation: RustominoRotation,
     pub blocks: [IVec2; 4],
     pub translation: IVec2,
+    pub glitch: Option<GlitchShape>,
 }
 
 impl Rustomino {
     pub fn new(rtype: RustominoType) -> Rustomino {
+        if rtype == RustominoType::Glitch {
+            return Rustomino::glitch(GlitchShape::Drip);
+        }
         let (rotation, blocks, translation) = {
             match rtype {
                 RustominoType::I => (
@@ -447,6 +517,7 @@ impl Rustomino {
                     Z_BLOCKS,
                     O_T_L_J_S_Z_START_TRANSLATION,
                 ),
+                RustominoType::Glitch => unreachable!("glitch pieces are built by glitch()"),
             }
         };
         Rustomino {
@@ -455,11 +526,45 @@ impl Rustomino {
             rotation,
             blocks,
             translation,
+            glitch: None,
+        }
+    }
+
+    /// an odd shaped glitch piece, it turns about the center of its box
+    pub fn glitch(shape: GlitchShape) -> Rustomino {
+        Rustomino {
+            rtype: RustominoType::Glitch,
+            state: RustominoState::Falling { time: 0. },
+            rotation: RustominoRotation::pivot(),
+            blocks: shape.blocks(),
+            translation: match shape.box_size() {
+                4 => I_START_TRANSLATION,
+                _ => O_T_L_J_S_Z_START_TRANSLATION,
+            },
+            glitch: Some(shape),
         }
     }
 
     pub fn reset(self) -> Rustomino {
-        Rustomino::new(self.rtype)
+        match self.glitch {
+            Some(shape) => Rustomino::glitch(shape),
+            None => Rustomino::new(self.rtype),
+        }
+    }
+
+    /// the blocks in the piece's own box after turning
+    fn turned_blocks(&self, rotation: &Rotation) -> [IVec2; 4] {
+        match self.rotation.get_rotation_trans(rotation) {
+            Some(deltas) => [0, 1, 2, 3].map(|i| self.blocks[i] + deltas[i]),
+            // a quarter turn about the center of the box
+            None => {
+                let edge = self.glitch.map_or(3, GlitchShape::box_size) - 1;
+                self.blocks.map(|b| match rotation {
+                    Rotation::Cw => IVec2::new(b.y, edge - b.x),
+                    Rotation::Ccw => IVec2::new(edge - b.y, b.x),
+                })
+            }
+        }
     }
 
     pub fn translate(&mut self, delta: IVec2) {
@@ -475,11 +580,7 @@ impl Rustomino {
     }
 
     pub fn rotate(&mut self, rotation: &Rotation, translation: &IVec2) {
-        let rotation_trans = self.rotation.get_rotation_trans(rotation);
-
-        for (block, delta) in self.blocks.iter_mut().zip(rotation_trans) {
-            *block += delta;
-        }
+        self.blocks = self.turned_blocks(rotation);
         // apply the wall kick to the position, not the shape
         self.translation += *translation;
 
@@ -487,18 +588,16 @@ impl Rustomino {
     }
 
     pub fn rotated(&self, rotation: &Rotation) -> [IVec2; 4] {
-        let rotation = self.rotation.get_rotation_trans(rotation);
-        let mut result = [IVec2::ZERO; 4];
-
-        for i in 0..4 {
-            result[i] = self.blocks[i] + self.translation + rotation[i];
-        }
-
-        result
+        translated(&self.turned_blocks(rotation), &self.translation)
     }
 
     pub fn wall_kick_tests(&self, rotation: &Rotation) -> [IVec2; 5] {
-        self.rotation.get_wall_kick_tests(self.rtype, rotation)
+        // glitch pieces in a 4x4 box kick like the I
+        let rtype = match self.glitch.map(GlitchShape::box_size) {
+            Some(4) => RustominoType::I,
+            _ => self.rtype,
+        };
+        self.rotation.get_wall_kick_tests(rtype, rotation)
     }
 
     pub fn set_state(&mut self, state: RustominoState) {
@@ -525,6 +624,9 @@ pub enum RustominoType {
     J,
     S,
     Z,
+    // left out of the bag, see RustominoBag::get_next
+    #[strum(disabled)]
+    Glitch,
 }
 
 impl RustominoType {
@@ -539,8 +641,14 @@ impl RustominoType {
         Color::new(0.15, 0.85, 0.55, 1.0), // emerald
     ];
 
+    // pale cyan, the glitch look splits it into magenta and cyan
+    const GLITCH_COLOR: Color = Color::new(0.78, 1.0, 0.96, 1.0);
+
     pub fn color(&self) -> Color {
-        RustominoType::PALETTE[*self as usize]
+        match self {
+            RustominoType::Glitch => RustominoType::GLITCH_COLOR,
+            _ => RustominoType::PALETTE[*self as usize],
+        }
     }
 }
 
@@ -591,20 +699,29 @@ pub enum Rotation {
 pub struct RustominoRotation {
     direction: Direction,
     // N>>E, E>>S, S>>W, W>>N
-    translations: &'static [[IVec2; 4]; 4],
+    // None turns about the center of the piece's box instead
+    translations: Option<&'static [[IVec2; 4]; 4]>,
 }
 
 impl RustominoRotation {
     fn new(translations: &'static [[IVec2; 4]; 4]) -> Self {
         Self {
             direction: Direction::N,
-            translations,
+            translations: Some(translations),
         }
     }
 
-    fn get_rotation_trans(&self, rotation: &Rotation) -> [IVec2; 4] {
-        let [n2e, e2s, s2w, w2n] = self.translations;
-        match self.direction {
+    /// turns about the center of the piece's box, for glitch pieces
+    fn pivot() -> Self {
+        Self {
+            direction: Direction::N,
+            translations: None,
+        }
+    }
+
+    fn get_rotation_trans(&self, rotation: &Rotation) -> Option<[IVec2; 4]> {
+        let [n2e, e2s, s2w, w2n] = self.translations?;
+        Some(match self.direction {
             Direction::N => match rotation {
                 Rotation::Cw => *n2e,
                 Rotation::Ccw => neg_trans(*w2n),
@@ -621,7 +738,7 @@ impl RustominoRotation {
                 Rotation::Cw => *w2n,
                 Rotation::Ccw => neg_trans(*s2w),
             },
-        }
+        })
     }
 
     fn get_wall_kick_tests(&self, rtype: RustominoType, rotation: &Rotation) -> [IVec2; 5] {
@@ -687,6 +804,7 @@ fn neg_trans(block_trans: [IVec2; 4]) -> [IVec2; 4] {
 pub struct RustominoBag {
     bag: Vec<RustominoType>, // contains the next rustomino types, shuffled
     rng: rand_xoshiro::Xoshiro256PlusPlus,
+    last_glitched: bool, // never two glitch pieces in a row
 }
 
 impl RustominoBag {
@@ -694,10 +812,22 @@ impl RustominoBag {
         RustominoBag {
             bag: Vec::new(),
             rng: rand::make_rng(),
+            last_glitched: false,
         }
     }
 
-    pub fn get_next(&mut self) -> Rustomino {
+    pub fn get_next(&mut self, level: usize, mode: Mode) -> Rustomino {
+        // now and then slip in a glitch piece, the bag keeps its piece for next time
+        let glitch = !self.last_glitched && self.rng.random_bool(glitch_chance(level));
+        self.last_glitched = glitch;
+        if glitch {
+            let shape = *GlitchShape::in_mode(mode)
+                .choose(&mut self.rng)
+                .expect("every mode has a glitch shape");
+            log::info!("next rustomino is a glitch: {:?}", shape);
+            return Rustomino::glitch(shape);
+        }
+
         // make sure the bag isn't empty
         self.fill_bag();
 
@@ -716,5 +846,188 @@ impl RustominoBag {
         self.bag.append(&mut RustominoType::iter().collect());
         self.bag.shuffle(&mut self.rng);
         log::debug!("filled rustomino bag: {:?}", self.bag);
+    }
+}
+
+/// chance the next piece is a glitch piece at a level
+fn glitch_chance(level: usize) -> f64 {
+    (GLITCH_CHANCE + level as f64 * GLITCH_CHANCE_PER_LEVEL).min(GLITCH_CHANCE_MAX)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sorted(mut blocks: [IVec2; 4]) -> [IVec2; 4] {
+        blocks.sort_by_key(|b| (b.x, b.y));
+        blocks
+    }
+
+    #[test]
+    fn glitch_shapes_are_never_one_of_the_seven() {
+        for shape in GlitchShape::iter() {
+            let blocks = shape.blocks();
+            // flood fill along edges: one of the seven reaches all four blocks
+            let mut reached = vec![blocks[0]];
+            let mut i = 0;
+            while i < reached.len() {
+                let b = reached[i];
+                for o in &blocks {
+                    if (o.x - b.x).abs() + (o.y - b.y).abs() == 1 && !reached.contains(o) {
+                        reached.push(*o);
+                    }
+                }
+                i += 1;
+            }
+            assert!(reached.len() < 4, "{shape:?} is joined edge to edge");
+        }
+    }
+
+    #[test]
+    fn glitch_pieces_turn_back_to_their_start() {
+        for shape in GlitchShape::iter() {
+            let start = Rustomino::glitch(shape);
+            for rotation in [Rotation::Cw, Rotation::Ccw] {
+                let mut piece = start.clone();
+                for _ in 0..4 {
+                    piece.rotate(&rotation, &IVec2::ZERO);
+                }
+                assert_eq!(sorted(piece.blocks), sorted(start.blocks));
+            }
+        }
+    }
+
+    #[test]
+    fn glitch_turns_undo_each_other() {
+        for shape in GlitchShape::iter() {
+            let start = Rustomino::glitch(shape);
+            let mut piece = start.clone();
+            piece.rotate(&Rotation::Cw, &IVec2::ZERO);
+            piece.rotate(&Rotation::Ccw, &IVec2::ZERO);
+            assert_eq!(piece.blocks, start.blocks);
+        }
+    }
+
+    #[test]
+    fn glitch_pieces_stay_in_their_box() {
+        for shape in GlitchShape::iter() {
+            let mut piece = Rustomino::glitch(shape);
+            let size = 0..shape.box_size();
+            for _ in 0..4 {
+                piece.rotate(&Rotation::Cw, &IVec2::ZERO);
+                assert!(piece
+                    .blocks
+                    .iter()
+                    .all(|b| size.contains(&b.x) && size.contains(&b.y)));
+            }
+        }
+    }
+
+    #[test]
+    fn three_wide_glitches_turn_like_a_t_piece() {
+        // a 3x3 piece turned about its center lands where the table turned T does
+        let mut t = Rustomino::new(RustominoType::T);
+        let mut pivot = t.clone();
+        pivot.rotation = RustominoRotation::pivot();
+        for rotation in [Rotation::Cw, Rotation::Cw, Rotation::Ccw, Rotation::Cw] {
+            t.rotate(&rotation, &IVec2::ZERO);
+            pivot.rotate(&rotation, &IVec2::ZERO);
+            assert_eq!(sorted(pivot.blocks), sorted(t.blocks));
+        }
+    }
+
+    #[test]
+    fn drip_turns_and_kicks_like_an_i_piece() {
+        // a straight four in the drip's box turns where the table turned I does
+        let mut i = Rustomino::new(RustominoType::I);
+        let mut pivot = Rustomino::glitch(GlitchShape::Drip);
+        pivot.blocks = i.blocks;
+        for rotation in [Rotation::Cw, Rotation::Cw, Rotation::Ccw, Rotation::Cw] {
+            i.rotate(&rotation, &IVec2::ZERO);
+            pivot.rotate(&rotation, &IVec2::ZERO);
+            assert_eq!(sorted(pivot.blocks), sorted(i.blocks));
+        }
+        assert_eq!(pivot.translation, i.translation);
+        assert_eq!(
+            pivot.wall_kick_tests(&Rotation::Cw),
+            i.wall_kick_tests(&Rotation::Cw)
+        );
+    }
+
+    #[test]
+    fn glitch_pieces_keep_their_shape_on_reset() {
+        for shape in GlitchShape::iter() {
+            let mut piece = Rustomino::glitch(shape);
+            piece.rotate(&Rotation::Cw, &IVec2::ZERO);
+            let reset = piece.reset();
+            assert_eq!(reset.glitch, Some(shape));
+            assert_eq!(reset.blocks, shape.blocks());
+        }
+    }
+
+    #[test]
+    fn each_mode_deals_its_shapes() {
+        assert_eq!(GlitchShape::in_mode(Mode::Normal), vec![GlitchShape::Drip]);
+        let medium = GlitchShape::in_mode(Mode::Medium);
+        assert_eq!(medium.len(), 4);
+        assert!(medium.iter().all(|shape| shape.gentle()));
+        for mode in [Mode::Hard, Mode::Extreme] {
+            assert_eq!(GlitchShape::in_mode(mode).len(), 7);
+        }
+        // drip in every mode
+        for mode in Mode::ALL {
+            assert!(GlitchShape::in_mode(mode).contains(&GlitchShape::Drip));
+        }
+    }
+
+    #[test]
+    fn the_bag_deals_each_modes_shapes() {
+        for mode in Mode::ALL {
+            let mut bag = RustominoBag::new();
+            let dealt: Vec<GlitchShape> = std::iter::repeat_with(|| bag.get_next(100, mode))
+                .filter_map(|r| r.glitch)
+                .take(300)
+                .collect();
+            let allowed = GlitchShape::in_mode(mode);
+            assert!(
+                dealt.iter().all(|shape| allowed.contains(shape)),
+                "{mode:?}"
+            );
+            for shape in allowed {
+                assert!(dealt.contains(&shape), "{mode:?} never dealt {shape:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn glitch_chance_rises_with_level_and_caps() {
+        assert!(glitch_chance(1) < glitch_chance(5));
+        assert_eq!(glitch_chance(100), GLITCH_CHANCE_MAX);
+    }
+
+    #[test]
+    fn glitches_never_come_twice_in_a_row() {
+        let mut bag = RustominoBag::new();
+        let mut last = false;
+        for _ in 0..2000 {
+            let glitch = bag.get_next(100, Mode::Hard).glitch.is_some();
+            assert!(!(glitch && last));
+            last = glitch;
+        }
+    }
+
+    #[test]
+    fn the_bag_still_deals_all_seven_between_glitches() {
+        let mut bag = RustominoBag::new();
+        let dealt: Vec<RustominoType> = std::iter::repeat_with(|| bag.get_next(100, Mode::Hard))
+            .filter(|r| r.glitch.is_none())
+            .take(70)
+            .map(|r| r.rtype)
+            .collect();
+        for set in dealt.chunks(7) {
+            for rtype in RustominoType::iter() {
+                assert!(set.contains(&rtype));
+            }
+        }
     }
 }

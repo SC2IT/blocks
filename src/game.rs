@@ -562,9 +562,9 @@ impl BlocksState {
         // if there is no next_rustomino get one from the bag
         let next_rustomino = match self.next_rustomino.take() {
             Some(rustomino) => rustomino,
-            None => self.rustomino_bag.get_next(),
+            None => self.rustomino_bag.get_next(self.level, self.mode),
         };
-        self.next_rustomino = Some(self.rustomino_bag.get_next());
+        self.next_rustomino = Some(self.rustomino_bag.get_next(self.level, self.mode));
         next_rustomino
     }
 
@@ -1137,6 +1137,7 @@ impl BlocksState {
             score_display: &self.score_display,
             best: self.scores.best().max(self.score_display.shown()),
             shake: shaking.then(|| self.effects.shake()),
+            glitch_time: self.screenshot.as_ref().map(|_| screenshot::glitch_time()),
         }
     }
 
