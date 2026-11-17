@@ -34,8 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Tough pieces show the background through them, with no outline: the star
   flight under a steady glow of the piece's color, the plasma in a grid,
   the storm's rain, sea and lightning with icicles below, or calm static,
-  speeding up and building with the level like the background. Cracked
-  blocks keep a trace of it in their crack.
+  speeding up and building with the level like the background. A cracked
+  block is the piece's color split open by a jagged crack and a chipped
+  corner, with the background's scene glowing through: starlight, pulsing
+  plasma, ice, or magenta and cyan static.
 - Glitch and tough pieces drop their own way. A glitch piece's ghost is
   outlined in magenta and cyan, jumping apart in bursts, and its soft and
   hard drop trails split and flicker, landing with a split flash and a
@@ -43,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   outline, and it drops with stronger trails, landing with a brighter
   flash, more and heavier dust and a bigger bump.
 - `glitch` screenshot scene, with `GLITCH_TIME` to pick the moment.
+- `tough` screenshot scene, tough pieces beside cracked blocks, with
+  `BACKGROUND` to pick the background.
 - Animation viewer (F12 from the menu): G picks the test piece for the
   falling animations, any of the seven pieces or any glitch shape; a Glitch Pieces entry shows
   all seven shapes at once; and N starts a game where every piece is a

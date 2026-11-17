@@ -12,7 +12,7 @@ use crate::style::{BlockStyle, BoardStyle, Style};
 use crate::util;
 use strum::IntoEnumIterator;
 
-use super::tough::{crack_color, draw_tough, ToughScene};
+use super::tough::{crack_color, draw_cracked, draw_tough, ToughScene};
 use super::*;
 
 pub(super) const PLAYFIELD_BACKGROUND_COLOR: Color = Color::new(0.0, 0.0, 0.0, 0.5);
@@ -391,6 +391,8 @@ pub(super) fn draw_playfield(
                     draw_glitch_block(canvas, meshes, rect, color, style, time, seed, calm);
                 } else if *wear == Wear::Tough && game_over.is_none() {
                     // drawn with its piece below
+                } else if *wear == Wear::Cracked && game_over.is_none() {
+                    draw_cracked(canvas, meshes, scene, rect, color, time, seed);
                 } else {
                     let crack = crack_color(scene.background.style, color, time, seed);
                     draw_block(canvas, meshes, rect, color, style);

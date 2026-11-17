@@ -63,10 +63,11 @@ pub enum Scene {
     ProgressFill,
     LevelUp,
     Glitch,
+    Tough,
 }
 
 impl Scene {
-    const ALL: [(&'static str, Scene); 28] = [
+    const ALL: [(&'static str, Scene); 29] = [
         ("menu", Scene::Menu),
         ("playing", Scene::Playing),
         ("line-clear", Scene::LineClear),
@@ -95,6 +96,7 @@ impl Scene {
         ("progress-fill", Scene::ProgressFill),
         ("level-up", Scene::LevelUp),
         ("glitch", Scene::Glitch),
+        ("tough", Scene::Tough),
     ];
 
     fn parse(name: &str) -> Option<Scene> {
@@ -303,6 +305,17 @@ impl BlocksState {
                 };
                 self.setup_board();
                 self.setup_active();
+                self.state = GameState::Playing;
+            }
+            Scene::Tough => {
+                // tough pieces beside cracked blocks, on the background named by BACKGROUND
+                if let Some(style) = std::env::var("BACKGROUND").ok().and_then(|name| {
+                    crate::style::from_name(&BackgroundStyle::ALL, &name, BackgroundStyle::name)
+                }) {
+                    self.background.style = style;
+                }
+                self.setup_board();
+                self.fill_rows(0, &["iiii1oo23.", "4567.oo.tt", "3.17..2..t", "..55.LL..."]);
                 self.state = GameState::Playing;
             }
             Scene::Glitch => {

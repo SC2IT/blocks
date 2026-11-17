@@ -371,3 +371,136 @@ pub(super) fn crack_color(style: BackgroundStyle, color: Color, time: f32, seed:
         }
     }
 }
+
+// cracked: the block's color as a shell, split open by a crack and a chipped corner, with the
+// tough scene glowing through
+const CRACK_STRIP: f32 = 2.0; // px per shell column
+const CRACK_GAP: f32 = 2.5; // half the crack's width, px at full size
+const CRACK_JAGS: f32 = 5.0; // steps along the crack
+const CRACK_JAG: f32 = 0.14; // how far each step wanders, of the block
+const CRACK_CHIP: f32 = 0.34; // the chipped corner, of the block
+const CRACK_SHELL: f32 = 0.93;
+const CRACK_FILL: f32 = 0.45; // the light inside the crack, its edges are full
+const CRACK_HALO: f32 = 0.35; // the soft glow spilling over the shell
+
+/// the light in a crack, the brightest part of each background
+fn crack_light(style: BackgroundStyle, color: Color, time: f32, seed: usize) -> Color {
+    let magenta = Color::new(1.0, 0.35, 0.85, 1.0);
+    let cyan = Color::new(0.35, 0.95, 1.0, 1.0);
+    match style {
+        BackgroundStyle::Stars => mix_color(STAR_COLOR, color, 0.25),
+        // the plasma's colors pulsing through
+        BackgroundStyle::Plasma => {
+            let pulse = 0.5 + 0.5 * (time * 3.0 + seed as f32).sin();
+            mix_color(magenta, cyan, pulse)
+        }
+        BackgroundStyle::Storm => ICE_COLOR,
+        // the static's split colors, swapping on its beat
+        BackgroundStyle::Off => {
+            if hash(seed, (time * 4.0).floor() + 70.0) < 0.5 {
+                magenta
+            } else {
+                cyan
+            }
+        }
+    }
+}
+
+/// a cracked block, one clear from gone: its shell split open over the tough scene
+#[allow(clippy::too_many_arguments)]
+pub(super) fn draw_cracked(
+    canvas: &mut Painter,
+    meshes: &Meshes,
+    scene: &ToughScene,
+    block: Rect,
+    color: Color,
+    time: f32,
+    seed: usize,
+) {
+    draw_tough(canvas, meshes, scene, block, block, color, false, seed);
+    let alpha = color.a;
+    let scale = block.w / BLOCK_SIZE;
+    let n = |k: f32| hash(seed, k + 50.0);
+    // the crack runs from side to side, a little askew, the chip takes a top corner
+    let (from, to) = (0.3 + 0.4 * n(1.0), 0.3 + 0.4 * n(2.0));
+    let chip_right = n(3.0) < 0.5;
+    let half = CRACK_GAP * scale;
+    let light = crack_light(scene.background.style, color, time, seed);
+    let glow = with_alpha(light, alpha);
+    let shell = with_alpha(color, CRACK_SHELL * alpha);
+    let top_light = with_alpha(tint(color, 0.4), CRACK_SHELL * alpha);
+    let low_shade = with_alpha(shade(color, 0.55), CRACK_SHELL * alpha);
+    let edge = (2.0 * scale).max(1.0);
+    let (right, bottom) = (block.x + block.w, block.y + block.h);
+    let mut x = block.x;
+    while x < right {
+        let w = CRACK_STRIP.min(right - x);
+        let t = (x + w / 2.0 - block.x) / block.w;
+        let step = (t * CRACK_JAGS).floor();
+        let jag = (hash(seed, 60.0 + step) - 0.5) * CRACK_JAG;
+        let mid = snap(block.y + block.h * (from + (to - from) * t + jag));
+        let corner = if chip_right { 1.0 - t } else { t };
+        let cut = snap(block.h * (CRACK_CHIP - corner).max(0.0));
+        let top = block.y + cut;
+        // the shell above the crack, lit along its top, and below it, shaded along its bottom
+        if mid - half > top {
+            draw_rect(
+                canvas,
+                meshes,
+                Rect::new(x, top, w, mid - half - top),
+                shell,
+            );
+            let lit = if cut > 0.0 { glow } else { top_light };
+            draw_rect(
+                canvas,
+                meshes,
+                Rect::new(x, top, w, edge.min(mid - half - top)),
+                lit,
+            );
+        }
+        draw_rect(
+            canvas,
+            meshes,
+            Rect::new(x, mid + half, w, bottom - mid - half),
+            shell,
+        );
+        draw_rect(
+            canvas,
+            meshes,
+            Rect::new(x, bottom - edge, w, edge),
+            low_shade,
+        );
+        // the scene glows in the crack, brightest at its edges
+        draw_rect(
+            canvas,
+            meshes,
+            Rect::new(x, mid - half, w, 2.0 * half),
+            with_alpha(light, CRACK_FILL * alpha),
+        );
+        draw_rect(
+            canvas,
+            meshes,
+            Rect::new(x, mid - half, w, scale.max(1.0)),
+            glow,
+        );
+        draw_rect(
+            canvas,
+            meshes,
+            Rect::new(x, mid + half - scale.max(1.0), w, scale.max(1.0)),
+            glow,
+        );
+        x += w;
+    }
+    // a soft halo along the crack
+    let mid = block.y + block.h * (from + to) / 2.0;
+    set_blend_mode(canvas, ggez::graphics::BlendMode::ADD);
+    draw_mesh(
+        canvas,
+        &meshes.glow,
+        ggez::graphics::DrawParam::default()
+            .dest(ggez::glam::Vec2::new(block.x + block.w / 2.0, mid))
+            .scale(ggez::glam::Vec2::new(block.w * 0.55, block.h * 0.22))
+            .color(with_alpha(light, CRACK_HALO * alpha)),
+    );
+    set_blend_mode(canvas, ggez::graphics::BlendMode::ALPHA);
+}
