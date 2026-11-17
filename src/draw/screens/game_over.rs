@@ -1,5 +1,5 @@
 use ggez::glam::Vec2;
-use ggez::graphics::{Canvas, Color, Rect};
+use ggez::graphics::{Color, Rect};
 use ggez::{Context, GameResult};
 
 use crate::effects::GameOver;
@@ -24,7 +24,7 @@ pub struct GameOverScreen<'a> {
 }
 
 impl Layer for GameOverScreen<'_> {
-    fn draw(&self, canvas: &mut Canvas, frame: &Frame) -> GameResult {
+    fn draw(&self, canvas: &mut Painter, frame: &Frame) -> GameResult {
         let Self {
             game_over,
             score,
@@ -95,7 +95,7 @@ impl Layer for GameOverScreen<'_> {
 /// piece colored letters that drop in one by one and bounce, then wave
 pub(super) fn draw_dropping_title(
     ctx: &Context,
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     game_over: &GameOver,
     title: &str,
     center: Vec2,

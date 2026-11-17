@@ -1,5 +1,5 @@
 use ggez::glam::{IVec2, Vec2};
-use ggez::graphics::{self, Canvas, Color, Rect};
+use ggez::graphics::{self, Color, Rect};
 use ggez::{Context, GameResult};
 
 use crate::effects::{Effects, GameOver};
@@ -54,7 +54,7 @@ pub(super) fn line_clear_alpha(line_clear: &LineClear, x: usize) -> f32 {
 }
 
 pub(super) fn draw_playing_backgound(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     view_settings: &ViewSettings,
     board: BoardStyle,
@@ -144,7 +144,7 @@ pub(super) fn draw_playing_backgound(
 }
 
 pub(super) fn draw_playfield(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     playfield: &Playfield,
     view_settings: &ViewSettings,
@@ -295,7 +295,7 @@ pub(super) fn ghost_outline(
 }
 
 pub(super) fn draw_preview(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     rustomino: &Option<Rustomino>,
     preview_rect: &Rect,
@@ -337,7 +337,7 @@ pub(super) fn draw_preview(
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn draw_playing(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     playfield: &Playfield,
     next_rustomino: &Option<Rustomino>,
@@ -378,7 +378,7 @@ pub(super) fn draw_playing(
 }
 
 pub(super) fn draw_playing_text(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     level: &ScoreDisplay,
     score: &ScoreDisplay,
     best: usize,
@@ -443,7 +443,7 @@ pub(super) fn draw_playing_text(
 }
 
 /// value that counts up and pops when it increases, with rising "+amount"
-pub(super) fn draw_counter(canvas: &mut Canvas, score: &ScoreDisplay, pos: Vec2) {
+pub(super) fn draw_counter(canvas: &mut Painter, score: &ScoreDisplay, pos: Vec2) {
     let pop = score.pop();
     let size = UI_FONT_SIZE * (1.0 + SCORE_POP_SCALE * pop);
     let grow = Vec2::new(0.0, (size - UI_FONT_SIZE) / 2.0);
@@ -461,7 +461,7 @@ pub(super) fn draw_counter(canvas: &mut Canvas, score: &ScoreDisplay, pos: Vec2)
 
 /// segments under the playfield filled per line toward the next level
 pub(super) fn draw_level_progress(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     progress: &LevelProgress,
     view_settings: &ViewSettings,
@@ -546,7 +546,7 @@ pub(super) fn draw_level_progress(
 /// particles, playfield flash and line clear callout
 pub(super) fn draw_effects(
     ctx: &Context,
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     effects: &Effects,
     view_settings: &ViewSettings,
@@ -656,7 +656,7 @@ pub struct GameLayer<'a> {
 }
 
 impl Layer for GameLayer<'_> {
-    fn draw(&self, canvas: &mut Canvas, frame: &Frame) -> GameResult {
+    fn draw(&self, canvas: &mut Painter, frame: &Frame) -> GameResult {
         let screen = canvas.screen_coordinates();
         if let (Some(rect), Some(shake)) = (screen, self.shake) {
             set_screen_coordinates(

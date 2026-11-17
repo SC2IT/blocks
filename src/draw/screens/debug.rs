@@ -1,4 +1,4 @@
-use ggez::graphics::{Canvas, Color, Rect};
+use ggez::graphics::{Color, Rect};
 use ggez::GameResult;
 
 use crate::draw::*;
@@ -44,7 +44,7 @@ pub struct DebugScreen<'a> {
 }
 
 impl Layer for DebugScreen<'_> {
-    fn draw(&self, canvas: &mut Canvas, frame: &Frame) -> GameResult {
+    fn draw(&self, canvas: &mut Painter, frame: &Frame) -> GameResult {
         let Self {
             names,
             selected,

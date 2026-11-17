@@ -8,7 +8,7 @@ use plasma::*;
 use stars::*;
 use storm::*;
 
-use ggez::graphics::{self, Canvas, Color, Rect};
+use ggez::graphics::{self, Color, Rect};
 
 use crate::background::{Background, BackgroundStyle};
 
@@ -40,7 +40,7 @@ pub(super) trait Scenery {
     /// animation over the gradient
     fn draw(
         &self,
-        _canvas: &mut Canvas,
+        _canvas: &mut Painter,
         _meshes: &Meshes,
         _view_rect: &Rect,
         _background: &Background,
@@ -71,7 +71,7 @@ pub fn clear_color(style: BackgroundStyle) -> Color {
 
 /// vertical gradient, then the animation
 pub fn draw_background(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     view_rect: &Rect,
     background: &Background,
@@ -86,7 +86,7 @@ pub fn draw_background(
 
 fn paint<S: Scenery>(
     scenery: &S,
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     view_rect: &Rect,
     background: &Background,

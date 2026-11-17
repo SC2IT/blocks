@@ -1,5 +1,5 @@
 use ggez::glam::Vec2;
-use ggez::graphics::{self, Canvas, Color, Rect, TextFragment};
+use ggez::graphics::{self, Color, Rect, TextFragment};
 use ggez::{Context, GameResult};
 
 use crate::rustomino::RustominoType;
@@ -45,7 +45,7 @@ pub(super) fn ui_text(text: &str, size: f32) -> graphics::Text {
     text
 }
 
-pub(super) fn draw_shadowed(canvas: &mut Canvas, text: &graphics::Text, pos: Vec2, color: Color) {
+pub(super) fn draw_shadowed(canvas: &mut Painter, text: &graphics::Text, pos: Vec2, color: Color) {
     let param = text_param();
     // the shadow fades with the text
     let shadow = with_alpha(TEXT_SHADOW_COLOR, TEXT_SHADOW_COLOR.a * color.a);
@@ -58,14 +58,14 @@ pub(super) fn draw_shadowed(canvas: &mut Canvas, text: &graphics::Text, pos: Vec
 }
 
 /// text in the ui font with a drop shadow
-pub(super) fn draw_text(canvas: &mut Canvas, text: &str, pos: Vec2, size: f32, color: Color) {
+pub(super) fn draw_text(canvas: &mut Painter, text: &str, pos: Vec2, size: f32, color: Color) {
     draw_shadowed(canvas, &ui_text(text, size), pos, color);
 }
 
 /// text positioned by its center
 pub(super) fn draw_text_centered(
     ctx: &Context,
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     text: &graphics::Text,
     center: Vec2,
     color: Color,
@@ -109,7 +109,7 @@ pub(super) fn piece_colored_text_alpha(
     )
 }
 
-pub(super) fn draw_piece_colored(canvas: &mut Canvas, text: &str, pos: Vec2, size: f32) {
+pub(super) fn draw_piece_colored(canvas: &mut Painter, text: &str, pos: Vec2, size: f32) {
     let (text, shadow) = piece_colored_text(text, size);
     let param = text_param();
     draw(
@@ -123,7 +123,7 @@ pub(super) fn draw_piece_colored(canvas: &mut Canvas, text: &str, pos: Vec2, siz
 /// large wobbling piece colored title
 pub(super) fn draw_title(
     ctx: &Context,
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     title: &str,
     center_y: f32,
     size: f32,
@@ -139,7 +139,7 @@ pub(super) fn draw_title(
 
 pub(super) fn draw_hint(
     ctx: &Context,
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     hint: &str,
     view_rect: &Rect,
 ) -> GameResult {

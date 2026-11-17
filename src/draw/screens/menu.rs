@@ -1,4 +1,3 @@
-use ggez::graphics::Canvas;
 use ggez::GameResult;
 
 use crate::menus::{self, Menu};
@@ -12,7 +11,7 @@ pub struct MenuScreen<'a> {
 }
 
 impl Layer for MenuScreen<'_> {
-    fn draw(&self, canvas: &mut Canvas, frame: &Frame) -> GameResult {
+    fn draw(&self, canvas: &mut Painter, frame: &Frame) -> GameResult {
         let Self { menu } = *self;
         let ctx = frame.ctx;
         let meshes = frame.meshes;

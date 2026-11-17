@@ -1,5 +1,5 @@
 use ggez::glam::Vec2;
-use ggez::graphics::{Canvas, Color, Rect};
+use ggez::graphics::{Color, Rect};
 
 use crate::background::Background;
 use crate::rustomino::RustominoType;
@@ -52,7 +52,7 @@ impl Scenery for Plasma {
 
     fn draw(
         &self,
-        canvas: &mut Canvas,
+        canvas: &mut Painter,
         meshes: &Meshes,
         view_rect: &Rect,
         background: &Background,
@@ -61,7 +61,7 @@ impl Scenery for Plasma {
     }
 }
 
-fn draw_plasma(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background: &Background) {
+fn draw_plasma(canvas: &mut Painter, meshes: &Meshes, view_rect: &Rect, background: &Background) {
     let glow = 1.0 + background.energy;
     let colors: Vec<Color> = RustominoType::iter().map(|t| t.color()).collect();
     // cells counted from the view center so resizing doesn't shift the pattern

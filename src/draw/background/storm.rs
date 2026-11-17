@@ -1,5 +1,5 @@
 use ggez::glam::Vec2;
-use ggez::graphics::{self, Canvas, Color, Rect};
+use ggez::graphics::{self, Color, Rect};
 
 use crate::background::Background;
 
@@ -146,7 +146,7 @@ impl Scenery for Storm {
 
     fn draw(
         &self,
-        canvas: &mut Canvas,
+        canvas: &mut Painter,
         meshes: &Meshes,
         view_rect: &Rect,
         background: &Background,
@@ -155,7 +155,7 @@ impl Scenery for Storm {
     }
 }
 
-fn draw_storm(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background: &Background) {
+fn draw_storm(canvas: &mut Painter, meshes: &Meshes, view_rect: &Rect, background: &Background) {
     let (x0, w, h) = (view_rect.x, view_rect.w, view_rect.h);
     let sea_top = view_rect.y + h * SEA_LEVEL;
     let sea_h = view_rect.y + h - sea_top;
@@ -447,7 +447,7 @@ fn draw_storm(canvas: &mut Canvas, meshes: &Meshes, view_rect: &Rect, background
 
 /// blowing mist and a pale veil over the whole storm
 pub(super) fn draw_whiteout(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     view_rect: &Rect,
     background: &Background,
@@ -507,7 +507,7 @@ pub(super) fn draw_whiteout(
 /// level up in the storm: a blinding flash, then bolts striking one after another across the sea
 #[allow(clippy::too_many_arguments)]
 pub(super) fn draw_level_up_storm(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     view_rect: &Rect,
     background: &Background,
@@ -564,7 +564,7 @@ pub(super) struct RainView {
 
 /// one layer of rain, falling until it meets the surface below it
 pub(super) fn draw_rain_layer(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     rain: &RainView,
     layer: usize,
@@ -604,7 +604,7 @@ pub(super) fn draw_rain_layer(
 /// a jagged bolt from one point to another, returns the points along it
 #[allow(clippy::too_many_arguments)]
 pub(super) fn draw_bolt(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     from: Vec2,
     to: Vec2,
@@ -635,7 +635,7 @@ pub(super) fn draw_bolt(
 /// cloud to sea bolt with a fork, a glow where it leaves the cloud and where it hits the water
 #[allow(clippy::too_many_arguments)]
 pub(super) fn draw_fork(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     seed: usize,
     x: f32,
@@ -696,7 +696,7 @@ pub(super) fn draw_fork(
 
 /// dotted line of a lightning bolt
 pub(super) fn draw_bolt_segment(
-    canvas: &mut Canvas,
+    canvas: &mut Painter,
     meshes: &Meshes,
     from: Vec2,
     to: Vec2,

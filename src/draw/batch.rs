@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -23,8 +22,9 @@ fn count(draws: usize) {
     DRAWS.fetch_add(draws, Ordering::Relaxed);
 }
 
+/// draw queue and instance array pool, kept across frames
 #[derive(Default)]
-struct Batch {
+pub struct Batch {
     mesh: Option<(*const Mesh, Mesh)>, // the queued mesh, compared by address
     params: Vec<DrawParam>,
     // one array per batch in a frame: ggez uploads an array when it's drawn,
@@ -35,6 +35,22 @@ struct Batch {
 }
 
 impl Batch {
+    /// start a frame on the canvas, sizing the pool for the last one
+    pub fn begin<'a>(&'a mut self, ctx: &Context, canvas: &'a mut Canvas) -> Painter<'a> {
+        self.mesh = None;
+        self.params.clear();
+        let wanted = (self.used + self.short).max(MIN_POOL);
+        while self.pool.len() < wanted {
+            self.pool.push(InstanceArray::new(ctx, None));
+        }
+        self.used = 0;
+        self.short = 0;
+        Painter {
+            canvas,
+            batch: self,
+        }
+    }
+
     fn flush(&mut self, canvas: &mut Canvas) {
         let Some((_, mesh)) = self.mesh.take() else {
             return;
@@ -56,65 +72,58 @@ impl Batch {
     }
 }
 
-thread_local! {
-    static BATCH: RefCell<Batch> = RefCell::default();
+/// a canvas drawn through the batch for a frame
+pub struct Painter<'a> {
+    canvas: &'a mut Canvas,
+    batch: &'a mut Batch,
 }
 
-/// start a frame, sizing the pool for the last one
-pub fn begin_frame(ctx: &Context) {
-    BATCH.with_borrow_mut(|batch| {
-        batch.mesh = None;
-        batch.params.clear();
-        let wanted = (batch.used + batch.short).max(MIN_POOL);
-        while batch.pool.len() < wanted {
-            batch.pool.push(InstanceArray::new(ctx, None));
-        }
-        batch.used = 0;
-        batch.short = 0;
-    });
-}
+impl Painter<'_> {
+    /// send what's queued, before the canvas is finished
+    pub fn end(self) {
+        self.batch.flush(self.canvas);
+    }
 
-/// send what's queued, before the canvas is finished
-pub fn end_frame(canvas: &mut Canvas) {
-    flush(canvas);
-}
+    pub(super) fn screen_coordinates(&self) -> Option<Rect> {
+        self.canvas.screen_coordinates()
+    }
 
-fn flush(canvas: &mut Canvas) {
-    BATCH.with_borrow_mut(|batch| batch.flush(canvas));
+    fn flush(&mut self) {
+        self.batch.flush(self.canvas);
+    }
 }
 
 /// draw a mesh, batched with the draws of the same mesh around it
-pub(super) fn draw_mesh(canvas: &mut Canvas, mesh: &Mesh, param: impl Into<DrawParam>) {
-    BATCH.with_borrow_mut(|batch| {
-        if batch
-            .mesh
-            .as_ref()
-            .is_some_and(|(queued, _)| !ptr::eq(*queued, mesh))
-        {
-            batch.flush(canvas);
-        }
-        if batch.mesh.is_none() {
-            batch.mesh = Some((ptr::from_ref(mesh), mesh.clone()));
-        }
-        batch.params.push(param.into());
-    });
+pub(super) fn draw_mesh(painter: &mut Painter, mesh: &Mesh, param: impl Into<DrawParam>) {
+    let batch = &mut *painter.batch;
+    if batch
+        .mesh
+        .as_ref()
+        .is_some_and(|(queued, _)| !ptr::eq(*queued, mesh))
+    {
+        batch.flush(painter.canvas);
+    }
+    if batch.mesh.is_none() {
+        batch.mesh = Some((ptr::from_ref(mesh), mesh.clone()));
+    }
+    batch.params.push(param.into());
 }
 
 /// draw anything else, after what's queued
-pub(super) fn draw(canvas: &mut Canvas, drawable: &impl Drawable, param: impl Into<DrawParam>) {
-    flush(canvas);
+pub(super) fn draw(painter: &mut Painter, drawable: &impl Drawable, param: impl Into<DrawParam>) {
+    painter.flush();
     count(1);
-    canvas.draw(drawable, param);
+    painter.canvas.draw(drawable, param);
 }
 
 /// blend mode for the draws after this
-pub(super) fn set_blend_mode(canvas: &mut Canvas, mode: BlendMode) {
-    flush(canvas);
-    canvas.set_blend_mode(mode);
+pub(super) fn set_blend_mode(painter: &mut Painter, mode: BlendMode) {
+    painter.flush();
+    painter.canvas.set_blend_mode(mode);
 }
 
 /// screen coordinates for the draws after this
-pub(super) fn set_screen_coordinates(canvas: &mut Canvas, rect: Rect) {
-    flush(canvas);
-    canvas.set_screen_coordinates(rect);
+pub(super) fn set_screen_coordinates(painter: &mut Painter, rect: Rect) {
+    painter.flush();
+    painter.canvas.set_screen_coordinates(rect);
 }
