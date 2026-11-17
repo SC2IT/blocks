@@ -4,6 +4,7 @@ use rand::{RngExt, SeedableRng};
 use rand_xoshiro::Xoshiro256PlusPlus;
 
 use crate::playfield::{Playfield, SlotState, PLAYFIELD_SLOTS};
+use crate::rustomino::{Rustomino, RustominoType};
 
 const GRAVITY: f32 = 30.0; // cells per second squared
 const LINE_CLEAR_GOLD: Color = Color::new(1.0, 0.92, 0.72, 1.0);
@@ -29,6 +30,14 @@ const GRAVITY_TRAIL: f32 = 0.5; // of a hard drop trail
 const LOCK_FLASH: f32 = 0.5; // of a hard drop flash
 const LOCK_BUMP: f32 = 1.0; // px
 const LOCK_DUST_PER_COLUMN: usize = 1;
+// tough pieces land heavier: stronger trails and flash, more dust, a bigger bump
+const TOUGH_TRAIL: f32 = 1.4;
+const TOUGH_FLASH: f32 = 1.5;
+const TOUGH_DUST: usize = 2; // times the dust
+const TOUGH_BUMP: f32 = 1.6;
+// glitch pieces throw off pixels in the glitch colors
+const GLITCH_MAGENTA: Color = Color::new(1.0, 0.2, 0.75, 1.0);
+const GLITCH_CYAN: Color = Color::new(0.2, 0.95, 1.0, 1.0);
 const TOPOUT_SHAKE: f32 = 6.0; // px
 const TOPOUT_SHAKE_TIME: f32 = 0.35;
 const CURTAIN_ROW_DELAY: f32 = 0.035; // bottom row first
@@ -43,12 +52,33 @@ const COUNT_START: f32 = 0.7; // after the overlay starts
 const COUNT_TIME: f32 = 0.8;
 const READY_TIME: f32 = 0.4; // after the overlay starts
 
+/// how a piece's drops and landing look
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DropStyle {
+    Regular,
+    Glitch, // split into magenta and cyan, flickering
+    Tough,  // heavier
+}
+
+impl DropStyle {
+    pub fn of(rustomino: &Rustomino) -> Self {
+        if rustomino.rtype == RustominoType::Glitch {
+            DropStyle::Glitch
+        } else if rustomino.tough {
+            DropStyle::Tough
+        } else {
+            DropStyle::Regular
+        }
+    }
+}
+
 pub struct Trail {
     pub x: f32, // playfield cells, y up
     pub from: f32,
     pub to: f32,
     pub color: Color,
     pub strength: f32,
+    pub style: DropStyle,
     time: f32,
 }
 
@@ -62,6 +92,7 @@ impl Trail {
 pub struct Impact {
     pub blocks: [IVec2; 4],
     pub strength: f32,
+    pub style: DropStyle,
     time: f32,
 }
 
@@ -268,9 +299,15 @@ impl Effects {
     }
 
     /// trail, landing flash, dust and bump for a hard drop
-    pub fn hard_drop(&mut self, from: &[IVec2; 4], to: &[IVec2; 4], color: Color) {
+    pub fn hard_drop(
+        &mut self,
+        from: &[IVec2; 4],
+        to: &[IVec2; 4],
+        color: Color,
+        style: DropStyle,
+    ) {
         let rows = (from[0].y - to[0].y) as f32;
-        self.drop_trails(from, to, color, 1.0);
+        self.drop_trails(from, to, color, 1.0, style);
         for x in columns(to) {
             let bottom = to
                 .iter()
@@ -278,24 +315,52 @@ impl Effects {
                 .map(|b| b.y)
                 .min()
                 .unwrap_or(0);
-            self.dust(x, bottom, color, DUST_PER_COLUMN);
+            self.dust(x, bottom, color, DUST_PER_COLUMN, style);
         }
         self.impact = Some(Impact {
             blocks: *to,
-            strength: 1.0,
+            strength: if style == DropStyle::Tough {
+                TOUGH_FLASH
+            } else {
+                1.0
+            },
+            style,
             time: 0.0,
         });
-        self.bump = (BUMP_MIN + rows * BUMP_PER_ROW).min(BUMP_MAX);
+        let bump = (BUMP_MIN + rows * BUMP_PER_ROW).min(BUMP_MAX);
+        self.bump = if style == DropStyle::Tough {
+            bump * TOUGH_BUMP
+        } else {
+            bump
+        };
         self.bump_time = 0.0;
     }
 
     /// streak over rows skipped by one gravity tick
-    pub fn gravity_drop(&mut self, from: &[IVec2; 4], to: &[IVec2; 4], color: Color) {
-        self.drop_trails(from, to, color, GRAVITY_TRAIL);
+    pub fn gravity_drop(
+        &mut self,
+        from: &[IVec2; 4],
+        to: &[IVec2; 4],
+        color: Color,
+        style: DropStyle,
+    ) {
+        self.drop_trails(from, to, color, GRAVITY_TRAIL, style);
     }
 
     /// one trail per column from the old top to the new top
-    fn drop_trails(&mut self, from: &[IVec2; 4], to: &[IVec2; 4], color: Color, strength: f32) {
+    fn drop_trails(
+        &mut self,
+        from: &[IVec2; 4],
+        to: &[IVec2; 4],
+        color: Color,
+        strength: f32,
+        style: DropStyle,
+    ) {
+        let strength = if style == DropStyle::Tough {
+            strength * TOUGH_TRAIL
+        } else {
+            strength
+        };
         if from[0].y <= to[0].y {
             return;
         }
@@ -308,6 +373,7 @@ impl Effects {
                     to: to_top as f32 + 1.0,
                     color,
                     strength,
+                    style,
                     time: 0.0,
                 });
             }
@@ -315,7 +381,12 @@ impl Effects {
     }
 
     /// short streak above a piece moved down one row
-    pub fn soft_drop(&mut self, to: &[IVec2; 4], color: Color) {
+    pub fn soft_drop(&mut self, to: &[IVec2; 4], color: Color, style: DropStyle) {
+        let strength = if style == DropStyle::Tough {
+            SOFT_TRAIL * TOUGH_TRAIL
+        } else {
+            SOFT_TRAIL
+        };
         for x in columns(to) {
             let Some(top) = to.iter().filter(|b| b.x == x).map(|b| b.y).max() else {
                 continue;
@@ -325,30 +396,45 @@ impl Effects {
                 from: top as f32 + 2.0,
                 to: top as f32 + 1.0,
                 color,
-                strength: SOFT_TRAIL,
+                strength,
+                style,
                 time: 0.0,
             });
         }
     }
 
     /// soft flash, dust and bump for a normal lock
-    pub fn lock(&mut self, blocks: &[IVec2; 4], color: Color) {
+    pub fn lock(&mut self, blocks: &[IVec2; 4], color: Color, style: DropStyle) {
         for x in columns(blocks) {
             if let Some(bottom) = blocks.iter().filter(|b| b.x == x).map(|b| b.y).min() {
-                self.dust(x, bottom, color, LOCK_DUST_PER_COLUMN);
+                self.dust(x, bottom, color, LOCK_DUST_PER_COLUMN, style);
             }
         }
+        let tough = style == DropStyle::Tough;
         self.impact = Some(Impact {
             blocks: *blocks,
-            strength: LOCK_FLASH,
+            strength: LOCK_FLASH * if tough { TOUGH_FLASH } else { 1.0 },
+            style,
             time: 0.0,
         });
-        self.bump = LOCK_BUMP;
+        self.bump = LOCK_BUMP * if tough { TOUGH_BUMP } else { 1.0 };
         self.bump_time = 0.0;
     }
 
-    fn dust(&mut self, x: i32, bottom: i32, color: Color, count: usize) {
+    fn dust(&mut self, x: i32, bottom: i32, color: Color, count: usize, style: DropStyle) {
+        let count = if style == DropStyle::Tough {
+            count * TOUGH_DUST
+        } else {
+            count
+        };
         for _ in 0..count {
+            // glitch pieces throw magenta and cyan pixels, tough ones heavier, darker dust
+            let color = match style {
+                DropStyle::Glitch if self.rng.random_bool(0.5) => GLITCH_MAGENTA,
+                DropStyle::Glitch => GLITCH_CYAN,
+                DropStyle::Tough => mix(color, Color::BLACK, 0.2),
+                DropStyle::Regular => mix(color, Color::WHITE, 0.6),
+            };
             let side = if self.rng.random_bool(0.5) { 1.0 } else { -1.0 };
             self.particles.push(Particle {
                 pos: Vec2::new(x as f32 + self.rng.random_range(0.1..0.9), bottom as f32),
@@ -356,8 +442,9 @@ impl Effects {
                     side * self.rng.random_range(2.0..6.0),
                     self.rng.random_range(1.0..4.0),
                 ),
-                color: mix(color, Color::WHITE, 0.6),
-                size: self.rng.random_range(0.08..0.18),
+                color,
+                size: self.rng.random_range(0.08..0.18)
+                    * if style == DropStyle::Tough { 1.4 } else { 1.0 },
                 delay: 0.0,
                 age: 0.0,
                 life: self.rng.random_range(0.2..0.4),
@@ -461,4 +548,55 @@ fn mix(from: Color, to: Color, amount: f32) -> Color {
         lerp(from.b, to.b),
         1.0,
     )
+}
+
+#[cfg(test)]
+mod drop_style_tests {
+    use super::*;
+    use crate::rustomino::GlitchShape;
+
+    fn landing(style: DropStyle) -> Effects {
+        let mut effects = Effects::new();
+        let to = [
+            IVec2::new(3, 0),
+            IVec2::new(4, 0),
+            IVec2::new(5, 0),
+            IVec2::new(4, 1),
+        ];
+        let from = to.map(|b| b + IVec2::new(0, 10));
+        effects.hard_drop(&from, &to, Color::WHITE, style);
+        effects
+    }
+
+    #[test]
+    fn each_piece_gets_its_style() {
+        assert_eq!(
+            DropStyle::of(&Rustomino::glitch(GlitchShape::Drip)),
+            DropStyle::Glitch
+        );
+        let mut tough = Rustomino::new(RustominoType::T);
+        tough.tough = true;
+        assert_eq!(DropStyle::of(&tough), DropStyle::Tough);
+        assert_eq!(
+            DropStyle::of(&Rustomino::new(RustominoType::T)),
+            DropStyle::Regular
+        );
+    }
+
+    #[test]
+    fn tough_pieces_land_heavier() {
+        let regular = landing(DropStyle::Regular);
+        let tough = landing(DropStyle::Tough);
+        assert!(tough.particles.len() > regular.particles.len());
+        assert!(tough.bump > regular.bump);
+    }
+
+    #[test]
+    fn glitch_pieces_throw_glitch_colors() {
+        let glitch = landing(DropStyle::Glitch);
+        assert!(glitch
+            .particles
+            .iter()
+            .all(|p| p.color == GLITCH_MAGENTA || p.color == GLITCH_CYAN));
+    }
 }

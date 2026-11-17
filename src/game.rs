@@ -28,7 +28,7 @@ use crate::{
     background::{Background, BackgroundStyle},
     controls::{self, Control, GameControls},
     draw,
-    effects::Effects,
+    effects::{DropStyle, Effects},
     level_progress::LevelProgress,
     menus::{self, Menu},
     playfield::{Playfield, TranslationDirection, PLAYFIELD_SIZE},
@@ -507,6 +507,7 @@ impl BlocksState {
                             &from,
                             &rustomino.playfield_slots(),
                             rustomino.rtype.color(),
+                            DropStyle::of(rustomino),
                         );
                     }
                 }
@@ -636,8 +637,11 @@ impl BlocksState {
         // landing is handled in playing_update
         if self.playfield.translate_active(TranslationDirection::Down) {
             if let Some(rustomino) = &self.playfield.active_rustomino {
-                self.effects
-                    .soft_drop(&rustomino.playfield_slots(), rustomino.rtype.color());
+                self.effects.soft_drop(
+                    &rustomino.playfield_slots(),
+                    rustomino.rtype.color(),
+                    DropStyle::of(rustomino),
+                );
             }
             self.update_lowest_row();
             self.score += SOFT_DROP_SCORE;
@@ -662,6 +666,7 @@ impl BlocksState {
                     &from,
                     &rustomino.playfield_slots(),
                     rustomino.rtype.color(),
+                    DropStyle::of(rustomino),
                 );
             }
         }
@@ -831,8 +836,11 @@ impl BlocksState {
         }
 
         if sound == Sfx::Lock {
-            self.effects
-                .lock(&rustomino.playfield_slots(), rustomino.rtype.color());
+            self.effects.lock(
+                &rustomino.playfield_slots(),
+                rustomino.rtype.color(),
+                DropStyle::of(rustomino),
+            );
         }
         self.hold_used = false;
         let Some(landed) = self.playfield.lock_active() else {

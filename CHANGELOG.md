@@ -24,13 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tough pieces: now and then a regular piece arrives tough, in every mode.
   When a line clears, its tough blocks survive, cracked, and the blocks
   above them drop onto them; a cracked block goes with the next clear
-  through it. About 1 in 25 pieces is tough at level 1, rising to 1 in 10
+  through it. About 1 in 20 pieces is tough at level 1, rising to 1 in 8
   by level 15. Glitch pieces are never tough, and a held piece stays tough.
   Tough pieces show the background through them, with no outline: the star
   flight under a steady glow of the piece's color, the plasma in a grid,
   the storm's rain, sea and lightning with icicles below, or calm static,
   speeding up and building with the level like the background. Cracked
   blocks keep a trace of it in their crack.
+- Glitch and tough pieces drop their own way. A glitch piece's ghost is
+  outlined in magenta and cyan, jumping apart in bursts, and its soft and
+  hard drop trails split and flicker, landing with a split flash and a
+  spray of magenta and cyan pixels. A tough piece's ghost has a heavy
+  outline, and it drops with stronger trails, landing with a brighter
+  flash, more and heavier dust and a bigger bump.
 - `glitch` screenshot scene, with `GLITCH_TIME` to pick the moment.
 - Animation viewer (F12 from the menu): G picks the test piece for the
   falling animations, any of the seven pieces or any glitch shape; a Glitch Pieces entry shows

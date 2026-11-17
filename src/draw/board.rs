@@ -3,7 +3,7 @@ use ggez::graphics::{self, Color, Rect};
 use ggez::{Context, GameResult};
 
 use crate::background::Background;
-use crate::effects::{Effects, GameOver};
+use crate::effects::{DropStyle, Effects, GameOver};
 use crate::level_progress::LevelProgress;
 use crate::playfield::{self, LineClear, Playfield, SlotState, Wear};
 use crate::rustomino::{Rustomino, RustominoType};
@@ -508,9 +508,39 @@ pub(super) fn draw_playfield(
             let rect = playfield_block_rect([block[0], block[1]], staging_rect, playfield_rect);
             draw_rect(canvas, meshes, rect, with_alpha(color, GHOST_FILL_ALPHA));
         }
-        let outline = with_alpha(color, GHOST_OUTLINE_ALPHA);
-        for rect in ghost_outline(&slots, staging_rect, playfield_rect) {
-            draw_rect(canvas, meshes, rect, outline);
+        if ghost.rtype == RustominoType::Glitch && game_over.is_none() {
+            // the outline split into magenta and cyan, jumping apart in bursts
+            let frame = (time * GLITCH_RATE).floor();
+            let burst = hash(7, frame * 0.731) < GLITCH_BURST;
+            let split = snap(GLITCH_SPLIT * if burst { 2.0 } else { 1.0 });
+            let alpha = GHOST_OUTLINE_ALPHA;
+            for rect in ghost_outline(&slots, staging_rect, playfield_rect, GHOST_OUTLINE_WIDTH) {
+                let shifted = |dx: f32| Rect::new(rect.x + dx, rect.y, rect.w, rect.h);
+                draw_rect(
+                    canvas,
+                    meshes,
+                    shifted(-split),
+                    with_alpha(GLITCH_MAGENTA, alpha),
+                );
+                draw_rect(
+                    canvas,
+                    meshes,
+                    shifted(split),
+                    with_alpha(GLITCH_CYAN, alpha),
+                );
+            }
+        } else if ghost.tough && game_over.is_none() {
+            // a heavy outline, twice as thick and stronger, for a piece that lands hard
+            let outline = with_alpha(color, (GHOST_OUTLINE_ALPHA * 1.4).min(1.0));
+            let width = GHOST_OUTLINE_WIDTH * 2.0;
+            for rect in ghost_outline(&slots, staging_rect, playfield_rect, width) {
+                draw_rect(canvas, meshes, rect, outline);
+            }
+        } else {
+            let outline = with_alpha(color, GHOST_OUTLINE_ALPHA);
+            for rect in ghost_outline(&slots, staging_rect, playfield_rect, GHOST_OUTLINE_WIDTH) {
+                draw_rect(canvas, meshes, rect, outline);
+            }
         }
     }
 }
@@ -520,9 +550,10 @@ pub(super) fn ghost_outline(
     slots: &[IVec2],
     staging_rect: &Rect,
     playfield_rect: &Rect,
+    width: f32,
 ) -> Vec<Rect> {
     let s = block_size();
-    let (p, w) = (CELL - s, snap(GHOST_OUTLINE_WIDTH));
+    let (p, w) = (CELL - s, snap(width));
     let has = |x: i32, y: i32| slots.contains(&IVec2::new(x, y));
     let mut rects = Vec::new();
     for &IVec2 { x, y } in slots {
@@ -890,7 +921,7 @@ pub(super) fn draw_effects(
     let cell = BLOCK_SIZE + BLOCK_PADDING;
     let left = view_settings.staging_rect.x + 1.0;
     let bottom = playfield.y + playfield.h - 1.0;
-    for trail in &effects.trails {
+    for (n, trail) in effects.trails.iter().enumerate() {
         let fade = trail.fade();
         let x = left + trail.x * cell;
         let length = trail.from - trail.to;
@@ -900,15 +931,54 @@ pub(super) fn draw_effects(
             let h = length / TRAIL_SEGMENTS as f32 * cell;
             let rect = snap_edges(Rect::new(x, bottom - y0 * cell - h, cell, h));
             let alpha = TRAIL_ALPHA * trail.strength * fade * (1.0 - t);
-            draw_rect(canvas, meshes, rect, with_alpha(trail.color, alpha));
+            if trail.style == DropStyle::Glitch {
+                // split into magenta and cyan, segments dropping out as it flickers
+                if hash(n * 31 + i, (fade * 24.0).floor()) < 0.3 {
+                    continue;
+                }
+                let split = snap(GLITCH_SPLIT * 1.5);
+                let shifted = |dx: f32| Rect::new(rect.x + dx, rect.y, rect.w, rect.h);
+                draw_rect(
+                    canvas,
+                    meshes,
+                    shifted(-split),
+                    with_alpha(GLITCH_MAGENTA, alpha),
+                );
+                draw_rect(
+                    canvas,
+                    meshes,
+                    shifted(split),
+                    with_alpha(GLITCH_CYAN, alpha),
+                );
+            } else {
+                draw_rect(canvas, meshes, rect, with_alpha(trail.color, alpha));
+            }
         }
     }
     if let Some(impact) = &effects.impact {
-        let color = with_alpha(Color::WHITE, IMPACT_ALPHA * impact.strength * impact.fade());
+        let alpha = (IMPACT_ALPHA * impact.strength * impact.fade()).min(1.0);
         for block in impact.blocks {
             let rect =
                 playfield_block_rect([block.x, block.y], &view_settings.staging_rect, &playfield);
-            draw_rect(canvas, meshes, rect, color);
+            if impact.style == DropStyle::Glitch {
+                // a split flash, magenta and cyan to either side
+                let split = snap(GLITCH_SPLIT * 2.0);
+                let shifted = |dx: f32| Rect::new(rect.x + dx, rect.y, rect.w, rect.h);
+                draw_rect(
+                    canvas,
+                    meshes,
+                    shifted(-split),
+                    with_alpha(GLITCH_MAGENTA, alpha),
+                );
+                draw_rect(
+                    canvas,
+                    meshes,
+                    shifted(split),
+                    with_alpha(GLITCH_CYAN, alpha),
+                );
+            } else {
+                draw_rect(canvas, meshes, rect, with_alpha(Color::WHITE, alpha));
+            }
         }
     }
     for particle in effects.particles.iter().filter(|p| p.visible()) {

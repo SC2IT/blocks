@@ -365,7 +365,12 @@ impl BlocksState {
                 self.playfield.set_active(Rustomino::new(RustominoType::T));
                 if let Some(from) = self.playfield.hard_drop_active() {
                     if let Some(to) = self.playfield.lock_active() {
-                        self.effects.hard_drop(&from, &to, RustominoType::T.color());
+                        self.effects.hard_drop(
+                            &from,
+                            &to,
+                            RustominoType::T.color(),
+                            crate::effects::DropStyle::Regular,
+                        );
                     }
                 }
                 self.effects.update(0.04);

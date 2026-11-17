@@ -403,9 +403,9 @@ const I_WALL_KICK_TESTS: [[IVec2; 5]; 8] = [
 ];
 
 // tough pieces: regular pieces whose blocks take two line clears, in every mode
-const TOUGH_CHANCE: f64 = 0.036; // chance per piece at level 0, about 1 in 25 at level 1
-const TOUGH_CHANCE_PER_LEVEL: f64 = 0.0045;
-const TOUGH_CHANCE_MAX: f64 = 0.1; // about 1 in 10, by level 15
+const TOUGH_CHANCE: f64 = 0.045; // chance per piece at level 0, about 1 in 20 at level 1
+const TOUGH_CHANCE_PER_LEVEL: f64 = 0.0055;
+const TOUGH_CHANCE_MAX: f64 = 0.125; // about 1 in 8, by level 15
 
 // glitch pieces: odd shapes that turn up now and then, more often at higher levels
 const GLITCH_CHANCE: f64 = 0.02; // chance per piece at level 0
