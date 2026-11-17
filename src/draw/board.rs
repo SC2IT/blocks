@@ -4,7 +4,7 @@ use ggez::{Context, GameResult};
 
 use crate::effects::{Effects, GameOver};
 use crate::level_progress::LevelProgress;
-use crate::playfield::{self, LineClear, Playfield, SlotState};
+use crate::playfield::{self, LineClear, Playfield, SlotState, Wear};
 use crate::rustomino::{Rustomino, RustominoType};
 use crate::score_display::ScoreDisplay;
 use crate::style::{BlockStyle, BoardStyle, Style};
@@ -154,6 +154,42 @@ pub(super) fn draw_playing_backgound(
     }
 }
 
+/// marks for tough and cracked blocks, until they get their final look
+fn draw_wear(canvas: &mut Painter, meshes: &Meshes, rect: Rect, color: Color, wear: Wear) {
+    match wear {
+        Wear::Whole => {}
+        Wear::Tough => {
+            // a dark core with a light center, inside the block's own color
+            let core = inset(rect, rect.w * 0.26);
+            draw_rect(
+                canvas,
+                meshes,
+                core,
+                with_alpha(shade(color, 0.35), color.a),
+            );
+            let center = inset(rect, rect.w * 0.42);
+            draw_rect(
+                canvas,
+                meshes,
+                center,
+                with_alpha(tint(color, 0.3), color.a),
+            );
+        }
+        Wear::Cracked => {
+            // a jagged crack from corner to corner
+            let dark = with_alpha(shade(color, 0.3), color.a);
+            let size = (3.0 * rect.w / BLOCK_SIZE).max(1.0);
+            let jags = [0.0, 0.08, -0.04, 0.1, 0.0, -0.08, 0.05, 0.0, 0.06];
+            for (i, jag) in jags.iter().enumerate() {
+                let t = i as f32 / (jags.len() - 1) as f32;
+                let x = rect.x + rect.w * (0.18 + 0.64 * t) - size / 2.0;
+                let y = rect.y + rect.h * (0.2 + 0.6 * t + jag) - size / 2.0;
+                draw_rect(canvas, meshes, snap_rect(Rect::new(x, y, size, size)), dark);
+            }
+        }
+    }
+}
+
 /// a block of a glitch piece, calm scales how often it bursts
 #[allow(clippy::too_many_arguments)]
 fn draw_glitch_block(
@@ -236,7 +272,7 @@ pub(super) fn draw_playfield(
             .as_ref()
             .filter(|line_clear| line_clear.lines.contains(&y));
         for (x, slot) in slots_x.iter().enumerate() {
-            if let SlotState::Locked(rtype) = slot {
+            if let SlotState::Locked(rtype, wear) = slot {
                 let mut color = block_color(*rtype, game_over, y as i32);
                 if let Some(line_clear) = clearing {
                     let progress = line_clear.progress() as f32;
@@ -254,6 +290,11 @@ pub(super) fn draw_playfield(
                     };
                     color = mix_color(base, Color::WHITE, flash);
                     color.a *= line_clear_alpha(line_clear, x);
+                    if *wear == Wear::Tough {
+                        // tough blocks survive the clear: they flash, but stay
+                        color = block_color(*rtype, game_over, y as i32);
+                        color = mix_color(color, Color::WHITE, flash);
+                    }
                 }
                 let rect = playfield_block_rect([x as i32, y as i32], staging_rect, playfield_rect);
                 if *rtype == RustominoType::Glitch && clearing.is_none() {
@@ -262,6 +303,7 @@ pub(super) fn draw_playfield(
                     draw_glitch_block(canvas, meshes, rect, color, style, time, seed, calm);
                 } else {
                     draw_block(canvas, meshes, rect, color, style);
+                    draw_wear(canvas, meshes, rect, color, *wear);
                 }
             }
         }
@@ -277,6 +319,9 @@ pub(super) fn draw_playfield(
                 draw_glitch_block(canvas, meshes, rect, color, style, time, seed, calm);
             } else {
                 draw_block(canvas, meshes, rect, color, style);
+                if active.tough {
+                    draw_wear(canvas, meshes, rect, color, Wear::Tough);
+                }
             }
         }
     }
@@ -419,6 +464,9 @@ pub(super) fn draw_preview(
                 draw_glitch_block(canvas, meshes, rect, color, style, time, seed, calm);
             } else {
                 draw_block(canvas, meshes, rect, color, style);
+                if rustomino.tough {
+                    draw_wear(canvas, meshes, rect, color, Wear::Tough);
+                }
             }
         }
     }

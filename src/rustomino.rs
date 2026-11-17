@@ -402,6 +402,11 @@ const I_WALL_KICK_TESTS: [[IVec2; 5]; 8] = [
     ],
 ];
 
+// tough pieces: regular pieces whose blocks take two line clears, in every mode
+const TOUGH_CHANCE: f64 = 0.036; // chance per piece at level 0, about 1 in 25 at level 1
+const TOUGH_CHANCE_PER_LEVEL: f64 = 0.0045;
+const TOUGH_CHANCE_MAX: f64 = 0.1; // about 1 in 10, by level 15
+
 // glitch pieces: odd shapes that turn up now and then, more often at higher levels
 const GLITCH_CHANCE: f64 = 0.02; // chance per piece at level 0
 const GLITCH_CHANCE_PER_LEVEL: f64 = 0.004;
@@ -473,6 +478,7 @@ pub struct Rustomino {
     pub blocks: [IVec2; 4],
     pub translation: IVec2,
     pub glitch: Option<GlitchShape>,
+    pub tough: bool, // its blocks take two line clears
 }
 
 impl Rustomino {
@@ -527,6 +533,7 @@ impl Rustomino {
             blocks,
             translation,
             glitch: None,
+            tough: false,
         }
     }
 
@@ -542,14 +549,17 @@ impl Rustomino {
                 _ => O_T_L_J_S_Z_START_TRANSLATION,
             },
             glitch: Some(shape),
+            tough: false,
         }
     }
 
     pub fn reset(self) -> Rustomino {
-        match self.glitch {
+        let mut piece = match self.glitch {
             Some(shape) => Rustomino::glitch(shape),
             None => Rustomino::new(self.rtype),
-        }
+        };
+        piece.tough = self.tough;
+        piece
     }
 
     /// the blocks in the piece's own box after turning
@@ -806,6 +816,7 @@ pub struct RustominoBag {
     rng: rand_xoshiro::Xoshiro256PlusPlus,
     last_glitched: bool,          // never two glitch pieces in a row
     pub glitch_every_piece: bool, // testing from the viewer: every piece a glitch, all seven shapes
+    pub tough_every_piece: bool,  // testing from the viewer: every regular piece tough
 }
 
 impl RustominoBag {
@@ -815,6 +826,7 @@ impl RustominoBag {
             rng: rand::make_rng(),
             last_glitched: false,
             glitch_every_piece: false,
+            tough_every_piece: false,
         }
     }
 
@@ -842,7 +854,9 @@ impl RustominoBag {
         let rtype = self.bag.pop().expect("rustomino bag is empty");
         log::info!("next rustomino type: {:?}", rtype);
 
-        Rustomino::new(rtype)
+        let mut piece = Rustomino::new(rtype);
+        piece.tough = self.tough_every_piece || self.rng.random_bool(tough_chance(level));
+        piece
     }
 
     // add one of each rustomino type to bag
@@ -855,6 +869,11 @@ impl RustominoBag {
         self.bag.shuffle(&mut self.rng);
         log::debug!("filled rustomino bag: {:?}", self.bag);
     }
+}
+
+/// chance a regular piece is tough at a level
+fn tough_chance(level: usize) -> f64 {
+    (TOUGH_CHANCE + level as f64 * TOUGH_CHANCE_PER_LEVEL).min(TOUGH_CHANCE_MAX)
 }
 
 /// chance the next piece is a glitch piece at a level
@@ -1021,6 +1040,41 @@ mod tests {
         for shape in GlitchShape::iter() {
             assert!(dealt.contains(&shape), "never dealt {shape:?}");
         }
+    }
+
+    #[test]
+    fn tough_chance_rises_with_level_and_caps() {
+        assert!(tough_chance(1) < tough_chance(5));
+        assert_eq!(tough_chance(100), TOUGH_CHANCE_MAX);
+    }
+
+    #[test]
+    fn tough_pieces_turn_up_and_glitches_are_never_tough() {
+        let mut bag = RustominoBag::new();
+        let dealt: Vec<Rustomino> = (0..2000).map(|_| bag.get_next(100, Mode::Hard)).collect();
+        assert!(dealt.iter().any(|r| r.tough));
+        assert!(dealt
+            .iter()
+            .filter(|r| r.glitch.is_some())
+            .all(|r| !r.tough));
+    }
+
+    #[test]
+    fn tough_pieces_stay_tough_on_reset() {
+        let mut piece = Rustomino::new(RustominoType::L);
+        piece.tough = true;
+        piece.rotate(&Rotation::Cw, &IVec2::ZERO);
+        assert!(piece.reset().tough);
+    }
+
+    #[test]
+    fn testing_makes_every_regular_piece_tough() {
+        let mut bag = RustominoBag::new();
+        bag.tough_every_piece = true;
+        assert!((0..100)
+            .map(|_| bag.get_next(1, Mode::Normal))
+            .filter(|r| r.glitch.is_none())
+            .all(|r| r.tough));
     }
 
     #[test]

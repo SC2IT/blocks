@@ -7,10 +7,12 @@ pub(super) const DEBUG_ROW_HEIGHT: f32 = 26.0; // tallest, rows shrink to clear 
 pub(super) const DEBUG_MIN_ROW_HEIGHT: f32 = 17.0;
 pub(super) const DEBUG_HUD_CLEAR: f32 = 34.0; // kept clear above the best, score and level text
 pub(super) const DEBUG_PANEL_GAP: f32 = 24.0; // below the hold and next previews
-pub(super) const DEBUG_HINTS: [&str; 14] = [
+pub(super) const DEBUG_HINTS: [&str; 16] = [
     "Up/Down: pick",
     "G/Shift G: test piece",
+    "T: tough test piece",
     "N: play, all glitches",
+    "Shift N: play, all tough",
     "Enter: restart",
     "R: replay on/off",
     "Left/Right: speed",

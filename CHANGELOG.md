@@ -21,11 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   About 1 in 40 pieces is a glitch at level 1, rising to 1 in 12 by level
   15, never two in a row, and the regular pieces still come in fair sets
   of seven.
+- Tough pieces: now and then a regular piece arrives tough, in every mode.
+  When a line clears, its tough blocks survive, cracked, and the blocks
+  above them drop onto them; a cracked block goes with the next clear
+  through it. About 1 in 25 pieces is tough at level 1, rising to 1 in 10
+  by level 15. Glitch pieces are never tough, and a held piece stays tough.
 - `glitch` screenshot scene, with `GLITCH_TIME` to pick the moment.
 - Animation viewer (F12 from the menu): G picks the test piece for the
   falling animations, any of the seven pieces or any glitch shape; a Glitch Pieces entry shows
   all seven shapes at once; and N starts a game where every piece is a
-  glitch piece.
+  glitch piece. T makes the test piece tough, a Tough Clear entry shows
+  tough blocks cracking and cracked ones going, and Shift N starts a game
+  where every regular piece is tough.
 
 - Storm level up: a white flash, a barrage of six lightning bolts sweeping
   across the sea, and the sea heaving up into the new level's state.

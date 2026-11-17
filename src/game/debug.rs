@@ -15,8 +15,8 @@ use crate::{
     draw,
     effects::Effects,
     level_progress::LevelProgress,
-    playfield::SlotState,
     playfield::{Playfield, TranslationDirection, PLAYFIELD_SLOTS},
+    playfield::{SlotState, Wear},
     rustomino::{GlitchShape, Rotation, Rustomino, RustominoType},
     score_display::ScoreDisplay,
     scores::{Initials, ScoreBoard},
@@ -50,6 +50,9 @@ fn background_cue(i: usize) -> f64 {
 const WELL: i32 = PLAYFIELD_SLOTS[0] as i32 / 2 - 1;
 // bottom row first, the center column is left open for an I
 const CLEAR_ROWS: [&str; 4] = ["LLZZ.OOSSJ", "LZZT.OOSJJ", "TTJJ.LLOOZ", "TZZS.SJJOO"];
+// the same, with tough blocks (small letters) and cracked ones (digits, 1 to 7 for I O T L J S Z)
+// in the two lines the I clears, so the tough ones crack and the cracked ones go
+const TOUGH_ROWS: [&str; 4] = ["lLZz.OoS2J", "LZ1T.OOsJj", "TTJJ.LLOOZ", "TZZS.SJJOO"];
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Animation {
@@ -67,10 +70,11 @@ pub enum Animation {
     HighScores,
     Background,
     GlitchPieces,
+    ToughClear,
 }
 
 impl Animation {
-    pub const ALL: [Animation; 14] = [
+    pub const ALL: [Animation; 15] = [
         Animation::Gravity,
         Animation::SoftDrop,
         Animation::HardDrop,
@@ -85,6 +89,7 @@ impl Animation {
         Animation::HighScores,
         Animation::Background,
         Animation::GlitchPieces,
+        Animation::ToughClear,
     ];
 
     pub fn name(self) -> &'static str {
@@ -103,13 +108,18 @@ impl Animation {
             Animation::HighScores => "High Scores",
             Animation::Background => "Background",
             Animation::GlitchPieces => "Glitch Pieces",
+            Animation::ToughClear => "Tough Clear",
         }
     }
 
     /// seconds before replaying
     fn length(self) -> f64 {
         match self {
-            Animation::Single | Animation::Double | Animation::Triple | Animation::Quad => 1.6,
+            Animation::Single
+            | Animation::Double
+            | Animation::Triple
+            | Animation::Quad
+            | Animation::ToughClear => 1.6,
             Animation::LevelUp => 2.2,
             Animation::HardDrop => 1.0,
             // until the piece locks
@@ -147,6 +157,7 @@ pub struct DebugView {
     step: f64,           // soft drop repeat
     surges: usize,       // background cues fired
     piece: usize, // test piece for the falling animations: the seven pieces, then the glitch shapes
+    tough: bool,  // the test piece is tough, if it's one of the seven
     saved: Option<(ScoreBoard, Style, BackgroundStyle)>, // restored on close
     pub stats: FrameStats,
     pub recording: Option<Recording>, // frame samples going to a csv
@@ -333,6 +344,7 @@ impl DebugView {
             step: 0.0,
             surges: 0,
             piece: RustominoType::T as usize,
+            tough: false,
             saved: None,
             stats: FrameStats::default(),
             recording: None,
@@ -362,7 +374,9 @@ impl DebugView {
 
     /// the piece the falling animations drop
     fn test_piece(&self) -> Rustomino {
-        Self::test_pieces().swap_remove(self.piece)
+        let mut piece = Self::test_pieces().swap_remove(self.piece);
+        piece.tough = self.tough && piece.glitch.is_none();
+        piece
     }
 
     /// the test piece's name, for the panel
@@ -370,6 +384,7 @@ impl DebugView {
         let piece = self.test_piece();
         match piece.glitch {
             Some(shape) => format!("{shape:?}"),
+            None if piece.tough => format!("{:?}, tough", piece.rtype),
             None => format!("{:?}", piece.rtype),
         }
     }
@@ -462,11 +477,13 @@ impl BlocksState {
         self.lockdown_resets = 0;
         self.debug.view = GameState::Playing;
         match self.debug.animation() {
-            Animation::Single => self.debug_clear(1, 2),
-            Animation::Double => self.debug_clear(2, 2),
-            Animation::Triple => self.debug_clear(3, 2),
-            Animation::Quad => self.debug_clear(4, 2),
-            Animation::LevelUp => self.debug_clear(2, LINES_PER_LEVEL - 2),
+            Animation::Single => self.debug_clear(&CLEAR_ROWS, 1, 2),
+            Animation::Double => self.debug_clear(&CLEAR_ROWS, 2, 2),
+            Animation::Triple => self.debug_clear(&CLEAR_ROWS, 3, 2),
+            Animation::Quad => self.debug_clear(&CLEAR_ROWS, 4, 2),
+            Animation::LevelUp => self.debug_clear(&CLEAR_ROWS, 2, LINES_PER_LEVEL - 2),
+            // two lines with tough and cracked blocks in them
+            Animation::ToughClear => self.debug_clear(&TOUGH_ROWS, 2, 2),
             Animation::HardDrop => {
                 self.spawn(self.debug.test_piece());
                 self.playfield.translate_active(TranslationDirection::Right);
@@ -524,7 +541,8 @@ impl BlocksState {
                 for (shape, x, y) in GLITCH_SHOWCASE {
                     for block in Rustomino::glitch(shape).blocks {
                         let (col, row) = ((x + block.x) as usize, (y + block.y) as usize);
-                        self.playfield.slots[row][col] = SlotState::Locked(RustominoType::Glitch);
+                        self.playfield.slots[row][col] =
+                            SlotState::Locked(RustominoType::Glitch, Wear::Whole);
                     }
                 }
                 self.next_rustomino = Some(Rustomino::glitch(GlitchShape::Drip));
@@ -534,9 +552,9 @@ impl BlocksState {
     }
 
     /// clear `lines` rows with an I dropped down the center
-    fn debug_clear(&mut self, lines: usize, filled: usize) {
+    fn debug_clear(&mut self, rows: &[&str], lines: usize, filled: usize) {
         self.playfield = Playfield::new();
-        let rows: Vec<String> = CLEAR_ROWS
+        let rows: Vec<String> = rows
             .iter()
             .enumerate()
             .map(|(y, row)| {
@@ -690,11 +708,22 @@ impl BlocksState {
                 self.start_animation();
             }
             KeyCode::KeyN if !repeated => {
-                // a real game where every piece is a glitch piece
+                // a real game where every piece is a glitch piece, or with shift, every
+                // regular piece tough
                 self.close_debug();
                 self.new_game();
-                self.rustomino_bag.glitch_every_piece = true;
+                if shift {
+                    self.rustomino_bag.tough_every_piece = true;
+                } else {
+                    self.rustomino_bag.glitch_every_piece = true;
+                }
                 self.resume();
+            }
+            KeyCode::KeyT if !repeated => {
+                // make the test piece tough, or not
+                self.debug.tough = !self.debug.tough;
+                self.assets.play(Sfx::MenuMove);
+                self.start_animation();
             }
             KeyCode::KeyB => self.background.cycle(1),
             KeyCode::KeyS => self.style.block = style::cycle(&BlockStyle::ALL, self.style.block, 1),

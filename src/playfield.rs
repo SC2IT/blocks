@@ -181,9 +181,14 @@ impl Playfield {
         log::trace!("rustomino: {:?}", active_rustomino);
 
         let slots = active_rustomino.playfield_slots();
+        let wear = if active_rustomino.tough {
+            Wear::Tough
+        } else {
+            Wear::Whole
+        };
         for slot in slots {
             self.slots[slot.y as usize][slot.x as usize] =
-                SlotState::Locked(active_rustomino.rtype);
+                SlotState::Locked(active_rustomino.rtype, wear);
         }
         self.update_ghost_rustomino();
         Some(slots)
@@ -237,16 +242,30 @@ impl Playfield {
     fn remove_lines(&mut self, completed_lines: &[usize]) {
         log::trace!("clearing lines before: playfield:\n{}", self);
 
-        // move the remaining lines down in one pass
-        let mut write = 0;
-        for read in 0..self.slots.len() {
-            if !completed_lines.contains(&read) {
-                self.slots[write] = self.slots[read];
-                write += 1;
+        // column by column: tough blocks in a completed line survive, cracked, everything
+        // else in it goes, and what's above drops down onto what's left
+        for x in 0..PLAYFIELD_SLOTS[0] {
+            let mut write = 0;
+            for read in 0..self.slots.len() {
+                let slot = self.slots[read][x];
+                let kept = if completed_lines.contains(&read) {
+                    match slot {
+                        SlotState::Locked(rtype, Wear::Tough) => {
+                            Some(SlotState::Locked(rtype, Wear::Cracked))
+                        }
+                        _ => None,
+                    }
+                } else {
+                    Some(slot)
+                };
+                if let Some(slot) = kept {
+                    self.slots[write][x] = slot;
+                    write += 1;
+                }
             }
-        }
-        for line in &mut self.slots[write..] {
-            *line = [SlotState::Empty; PLAYFIELD_SLOTS[0]];
+            for line in &mut self.slots[write..] {
+                line[x] = SlotState::Empty;
+            }
         }
 
         log::trace!("clearing lines after: playfield:\n{}", self);
@@ -257,7 +276,10 @@ impl Playfield {
         self.slots
             .iter()
             .enumerate()
-            .filter(|(_, line)| line.iter().all(|slot| matches!(slot, SlotState::Locked(_))))
+            .filter(|(_, line)| {
+                line.iter()
+                    .all(|slot| matches!(slot, SlotState::Locked(..)))
+            })
             .map(|(i, _)| i)
             .collect()
     }
@@ -304,7 +326,7 @@ fn check_collision(playfield_slots: &PlayfieldSlots, block_locations: [IVec2; 4]
         // slots[y][x]
         if matches!(
             playfield_slots[location[1] as usize][location[0] as usize],
-            SlotState::Locked(_)
+            SlotState::Locked(..)
         ) {
             log::trace!("collided with locked block: {:?}", block_locations);
             return true;
@@ -378,15 +400,109 @@ impl TranslationDirection {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SlotState {
     Empty,
-    Locked(RustominoType),
+    Locked(RustominoType, Wear),
+}
+
+/// how much a locked block has been through
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Wear {
+    Whole,   // an ordinary block
+    Tough,   // from a tough piece, survives its first line clear
+    Cracked, // a tough block after its first clear, the next one takes it
 }
 
 impl Display for SlotState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
             SlotState::Empty => write!(f, "  ")?,
-            SlotState::Locked(_) => write!(f, " @")?,
+            SlotState::Locked(_, Wear::Whole) => write!(f, " @")?,
+            SlotState::Locked(_, Wear::Tough) => write!(f, " #")?,
+            SlotState::Locked(_, Wear::Cracked) => write!(f, " %")?,
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const W: usize = PLAYFIELD_SLOTS[0];
+
+    fn whole() -> SlotState {
+        SlotState::Locked(RustominoType::T, Wear::Whole)
+    }
+
+    fn tough() -> SlotState {
+        SlotState::Locked(RustominoType::T, Wear::Tough)
+    }
+
+    fn cracked() -> SlotState {
+        SlotState::Locked(RustominoType::T, Wear::Cracked)
+    }
+
+    #[test]
+    fn a_plain_line_clears_and_the_rest_drops() {
+        let mut playfield = Playfield::new();
+        playfield.slots[0] = [whole(); W];
+        playfield.slots[1][4] = whole();
+        playfield.remove_lines(&[0]);
+        assert_eq!(playfield.slots[0][4], whole());
+        assert_eq!(playfield.slots[0][3], SlotState::Empty);
+        assert_eq!(playfield.slots[1][4], SlotState::Empty);
+    }
+
+    #[test]
+    fn tough_blocks_survive_cracked_and_the_column_drops_onto_them() {
+        let mut playfield = Playfield::new();
+        playfield.slots[0] = [whole(); W];
+        playfield.slots[0][2] = tough();
+        playfield.slots[1][2] = whole(); // above the tough block
+        playfield.slots[1][5] = whole(); // above an ordinary one
+        playfield.remove_lines(&[0]);
+        // the tough block stays, cracked, and its column lands on it
+        assert_eq!(playfield.slots[0][2], cracked());
+        assert_eq!(playfield.slots[1][2], whole());
+        // elsewhere the line goes and what's above drops into it
+        assert_eq!(playfield.slots[0][5], whole());
+        assert_eq!(playfield.slots[1][5], SlotState::Empty);
+        assert_eq!(playfield.slots[0][0], SlotState::Empty);
+    }
+
+    #[test]
+    fn cracked_blocks_go_on_the_next_clear() {
+        let mut playfield = Playfield::new();
+        playfield.slots[0] = [whole(); W];
+        playfield.slots[0][7] = cracked();
+        playfield.remove_lines(&[0]);
+        assert!(playfield.slots[0]
+            .iter()
+            .all(|slot| *slot == SlotState::Empty));
+    }
+
+    #[test]
+    fn holes_below_the_cleared_line_stay() {
+        // columns drop only into the cleared line, not into holes further down
+        let mut playfield = Playfield::new();
+        playfield.slots[1] = [whole(); W];
+        playfield.slots[2][3] = whole();
+        playfield.remove_lines(&[1]);
+        assert_eq!(playfield.slots[0][3], SlotState::Empty);
+        assert_eq!(playfield.slots[1][3], whole());
+    }
+
+    #[test]
+    fn a_tough_piece_locks_as_tough_blocks() {
+        let mut playfield = Playfield::new();
+        let mut piece = crate::rustomino::Rustomino::new(RustominoType::O);
+        piece.tough = true;
+        playfield.set_active(piece);
+        let slots = playfield.lock_active().expect("a piece to lock");
+        for slot in slots {
+            assert_eq!(
+                playfield.slots[slot.y as usize][slot.x as usize],
+                SlotState::Locked(RustominoType::O, Wear::Tough)
+            );
+        }
     }
 }

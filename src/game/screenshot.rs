@@ -12,7 +12,7 @@ use crate::score_display::ScoreDisplay;
 use crate::scores::{HighScore, Initials};
 use crate::style::{BlockStyle, BoardStyle};
 use crate::{
-    playfield::{LineClear, SlotState, TranslationDirection},
+    playfield::{LineClear, SlotState, TranslationDirection, Wear},
     rustomino::{GlitchShape, Rustomino, RustominoType},
 };
 
@@ -157,12 +157,26 @@ fn rtype(c: char) -> Option<RustominoType> {
     }
 }
 
+/// a locked block from a board row: a capital is a whole block, a small letter a tough
+/// one, and a digit a cracked one (1 to 7 for I O T L J S Z)
+fn slot(c: char) -> Option<SlotState> {
+    if let Some(rtype) = rtype(c) {
+        return Some(SlotState::Locked(rtype, Wear::Whole));
+    }
+    if c.is_ascii_lowercase() {
+        return rtype(c.to_ascii_uppercase()).map(|rtype| SlotState::Locked(rtype, Wear::Tough));
+    }
+    let piece = c.to_digit(10).filter(|d| (1..=7).contains(d))?;
+    let rtype = rtype("IOTLJSZ".chars().nth(piece as usize - 1)?)?;
+    Some(SlotState::Locked(rtype, Wear::Cracked))
+}
+
 impl BlocksState {
     pub(super) fn fill_rows(&mut self, start: usize, rows: &[&str]) {
         for (y, row) in rows.iter().enumerate() {
             for (x, c) in row.chars().enumerate() {
-                if let Some(rtype) = rtype(c) {
-                    self.playfield.slots[start + y][x] = SlotState::Locked(rtype);
+                if let Some(slot) = slot(c) {
+                    self.playfield.slots[start + y][x] = slot;
                 }
             }
         }

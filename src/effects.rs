@@ -216,7 +216,7 @@ impl Effects {
         let duration = line_clear.duration as f32;
         for &y in &line_clear.lines {
             for (x, slot) in playfield.slots[y].iter().enumerate() {
-                let SlotState::Locked(rtype) = slot else {
+                let SlotState::Locked(rtype, _) = slot else {
                     continue;
                 };
                 let delay = line_clear.wipe_start(x) as f32 * duration + 0.05;
