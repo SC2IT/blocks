@@ -3,7 +3,9 @@ use ggez::GameResult;
 
 use crate::draw::*;
 
-pub(super) const DEBUG_ROW_HEIGHT: f32 = 26.0;
+pub(super) const DEBUG_ROW_HEIGHT: f32 = 26.0; // tallest, rows shrink to clear the hud
+pub(super) const DEBUG_MIN_ROW_HEIGHT: f32 = 17.0;
+pub(super) const DEBUG_HUD_CLEAR: f32 = 34.0; // kept clear above the best, score and level text
 pub(super) const DEBUG_PANEL_GAP: f32 = 24.0; // below the hold and next previews
 pub(super) const DEBUG_HINTS: [&str; 14] = [
     "Up/Down: pick",
@@ -71,18 +73,21 @@ impl Layer for DebugScreen<'_> {
         let left = view_settings.preview_rect.x;
         let width = (view.w - left - PANEL_PADDING).max(view_settings.preview_rect.w);
         let rows = names.len() + 5;
+        // fit above the best score, which sits above the score
+        let bottom = view_settings.score_pos.y - super::super::board::BEST_OFFSET - DEBUG_HUD_CLEAR;
+        let row_height = fit_rows(bottom - top - 2.0 * PANEL_PADDING, rows);
         let panel = Rect::new(
             left,
             top,
             width,
-            rows as f32 * DEBUG_ROW_HEIGHT + 2.0 * PANEL_PADDING,
+            rows as f32 * row_height + 2.0 * PANEL_PADDING,
         );
         draw_panel(canvas, meshes, panel);
         let title = ui_text("Animations", SMALL_TEXT_SIZE);
-        let title_row = menu_row_rect(panel, 0, DEBUG_ROW_HEIGHT);
+        let title_row = menu_row_rect(panel, 0, row_height);
         draw_text_centered(ctx, canvas, &title, title_row.center().into(), LABEL_COLOR)?;
         for (i, name) in names.iter().enumerate() {
-            let row = menu_row_rect(panel, i + 1, DEBUG_ROW_HEIGHT);
+            let row = menu_row_rect(panel, i + 1, row_height);
             let chosen = i == selected;
             if chosen {
                 draw_selection(ctx, canvas, meshes, row, style);
@@ -103,7 +108,7 @@ impl Layer for DebugScreen<'_> {
             .into_iter()
             .enumerate()
         {
-            let row = menu_row_rect(panel, rows - 4 + i, DEBUG_ROW_HEIGHT);
+            let row = menu_row_rect(panel, rows - 4 + i, row_height);
             let text = ui_text(line, SMALL_TEXT_SIZE);
             draw_text_centered(ctx, canvas, &text, row.center().into(), LABEL_COLOR)?;
         }
@@ -111,15 +116,20 @@ impl Layer for DebugScreen<'_> {
         // controls, left of the playfield
         let right = view_settings.hold_rect.right();
         let width = (right - PANEL_PADDING).max(view_settings.hold_rect.w);
+        // the controls and the frame cost under them fit above the level
+        let stat_rows = 4;
+        let bottom = view_settings.level_pos.y - DEBUG_HUD_CLEAR;
+        let room = bottom - top - 4.0 * PANEL_PADDING - DEBUG_PANEL_GAP;
+        let row_height = fit_rows(room, DEBUG_HINTS.len() + stat_rows);
         let panel = Rect::new(
             right - width,
             top,
             width,
-            DEBUG_HINTS.len() as f32 * DEBUG_ROW_HEIGHT + 2.0 * PANEL_PADDING,
+            DEBUG_HINTS.len() as f32 * row_height + 2.0 * PANEL_PADDING,
         );
         draw_panel(canvas, meshes, panel);
         for (i, hint) in DEBUG_HINTS.iter().enumerate() {
-            let row = menu_row_rect(panel, i, DEBUG_ROW_HEIGHT);
+            let row = menu_row_rect(panel, i, row_height);
             let text = ui_text(hint, SMALL_TEXT_SIZE * 0.75);
             draw_text_centered(ctx, canvas, &text, row.center().into(), LABEL_COLOR)?;
         }
@@ -142,14 +152,19 @@ impl Layer for DebugScreen<'_> {
             panel.x,
             panel.bottom() + DEBUG_PANEL_GAP,
             panel.w,
-            lines.len() as f32 * DEBUG_ROW_HEIGHT + 2.0 * PANEL_PADDING,
+            lines.len() as f32 * row_height + 2.0 * PANEL_PADDING,
         );
         draw_panel(canvas, meshes, panel);
         for (i, line) in lines.iter().enumerate() {
-            let row = menu_row_rect(panel, i, DEBUG_ROW_HEIGHT);
+            let row = menu_row_rect(panel, i, row_height);
             let text = ui_text(line, SMALL_TEXT_SIZE * 0.75);
             draw_text_centered(ctx, canvas, &text, row.center().into(), LABEL_COLOR)?;
         }
         Ok(())
     }
+}
+
+/// row height that fits `rows` rows in `room`, no taller than the usual, no shorter than readable
+fn fit_rows(room: f32, rows: usize) -> f32 {
+    (room / rows as f32).clamp(DEBUG_MIN_ROW_HEIGHT, DEBUG_ROW_HEIGHT)
 }
