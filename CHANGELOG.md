@@ -31,8 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Song, Music and Sound moved to a new Audio page in the options.
-- Standard mode is now Normal and Hard mode is now Extreme. Saved settings
-  carry over to the matching new mode.
+- Standard mode is now Normal and Hard mode is now Extreme. The game starts
+  on Normal until a mode is picked; the old saved mode isn't carried over.
 
 ## [0.5.1] - 2026-11-15
 

@@ -45,6 +45,7 @@ const FAST_GRAVITY_DELAY: f64 = 0.05; // gravity trail on every row at or below 
 const MIN_GRAVITY_DELAY: f64 = 1.0 / 1200.0; // 20 rows per 60th of a second
 const STARTING_LEVEL: usize = 1;
 const TOP_LEVEL: usize = 15; // every mode but extreme stops speeding up here
+const DEFAULT_MODE: Mode = Mode::Normal; // until a mode is picked
 const LINES_PER_LEVEL: usize = 10; // number of lines that need to be cleared before level advances
 const LOCKDOWN_DELAY: f64 = 0.5; // how long to wait before locking block (guideline)
 const LINE_CLEAR_DELAY: f64 = 0.4; // how long completed lines stay before being removed
@@ -106,16 +107,9 @@ impl Mode {
     }
 
     /// the mode saved settings mean; settings from before there were four modes
-    /// only have the old names, where Standard is now Normal and Hard is now Extreme
-    pub fn from_settings(game_mode: &str, old_mode: &str) -> Option<Mode> {
-        if !game_mode.is_empty() {
-            return style::from_name(&Mode::ALL, game_mode, Mode::name);
-        }
-        match old_mode {
-            "Standard" => Some(Mode::Normal),
-            "Hard" => Some(Mode::Extreme),
-            _ => None,
-        }
+    /// start on normal, the default, until a mode is picked
+    pub fn from_settings(game_mode: &str) -> Option<Mode> {
+        style::from_name(&Mode::ALL, game_mode, Mode::name)
     }
 
     /// the closest old name, so older versions reading the settings still get a mode
@@ -450,8 +444,8 @@ impl BlocksState {
             background: Background::new(),
             style: Style::default(),
             rustomino_bag: RustominoBag::new(),
-            mode: Mode::Normal,
-            gravity_delay: gravity_delay(STARTING_LEVEL, Mode::Normal),
+            mode: DEFAULT_MODE,
+            gravity_delay: gravity_delay(STARTING_LEVEL, DEFAULT_MODE),
             total_lines_cleared: 0,
             hold_used: false,
             lockdown_resets: 0,
@@ -1231,7 +1225,7 @@ impl BlocksState {
     /// apply saved options
     fn apply_settings(&mut self) {
         let settings = &self.settings;
-        if let Some(mode) = Mode::from_settings(&settings.game_mode, &settings.mode) {
+        if let Some(mode) = Mode::from_settings(&settings.game_mode) {
             self.mode = mode;
         }
         if let Some(theme) = MUSIC_THEMES
@@ -1681,18 +1675,16 @@ mod tests {
     #[test]
     fn mode_names_round_trip() {
         for mode in Mode::ALL {
-            assert_eq!(Mode::from_settings(mode.name(), ""), Some(mode));
+            assert_eq!(Mode::from_settings(mode.name()), Some(mode));
         }
     }
 
     #[test]
-    fn old_settings_carry_over() {
-        // saved before there were four modes
-        assert_eq!(Mode::from_settings("", "Standard"), Some(Mode::Normal));
-        assert_eq!(Mode::from_settings("", "Hard"), Some(Mode::Extreme));
-        assert_eq!(Mode::from_settings("", ""), None);
-        // the new name wins over the old one
-        assert_eq!(Mode::from_settings("Hard", "Standard"), Some(Mode::Hard));
+    fn old_settings_start_on_normal() {
+        // saved before there were four modes: no game_mode, so the default
+        let settings: crate::settings::Settings = toml::from_str("mode = \"Hard\"").unwrap();
+        assert_eq!(Mode::from_settings(&settings.game_mode), None);
+        assert_eq!(DEFAULT_MODE, Mode::Normal);
     }
 
     #[test]
