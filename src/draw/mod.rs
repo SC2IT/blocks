@@ -11,6 +11,7 @@ mod board;
 mod paint;
 mod screens;
 mod text;
+mod tough;
 mod widgets;
 
 use batch::*;

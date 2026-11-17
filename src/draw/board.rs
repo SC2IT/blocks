@@ -2,6 +2,7 @@ use ggez::glam::{IVec2, Vec2};
 use ggez::graphics::{self, Color, Rect};
 use ggez::{Context, GameResult};
 
+use crate::background::Background;
 use crate::effects::{Effects, GameOver};
 use crate::level_progress::LevelProgress;
 use crate::playfield::{self, LineClear, Playfield, SlotState, Wear};
@@ -11,6 +12,7 @@ use crate::style::{BlockStyle, BoardStyle, Style};
 use crate::util;
 use strum::IntoEnumIterator;
 
+use super::tough::{crack_color, draw_tough, ToughScene};
 use super::*;
 
 pub(super) const PLAYFIELD_BACKGROUND_COLOR: Color = Color::new(0.0, 0.0, 0.0, 0.5);
@@ -155,7 +157,16 @@ pub(super) fn draw_playing_backgound(
 }
 
 /// marks for tough and cracked blocks, until they get their final look
-fn draw_wear(canvas: &mut Painter, meshes: &Meshes, rect: Rect, color: Color, wear: Wear) {
+/// marks for tough blocks under the game over curtain, and the crack of a cracked block in
+/// a trace of the scene it showed
+fn draw_wear(
+    canvas: &mut Painter,
+    meshes: &Meshes,
+    rect: Rect,
+    color: Color,
+    wear: Wear,
+    crack: Color,
+) {
     match wear {
         Wear::Whole => {}
         Wear::Tough => {
@@ -177,7 +188,7 @@ fn draw_wear(canvas: &mut Painter, meshes: &Meshes, rect: Rect, color: Color, we
         }
         Wear::Cracked => {
             // a jagged crack from corner to corner
-            let dark = with_alpha(shade(color, 0.3), color.a);
+            let dark = with_alpha(crack, color.a);
             let size = (3.0 * rect.w / BLOCK_SIZE).max(1.0);
             let jags = [0.0, 0.08, -0.04, 0.1, 0.0, -0.08, 0.05, 0.0, 0.06];
             for (i, jag) in jags.iter().enumerate() {
@@ -188,6 +199,73 @@ fn draw_wear(canvas: &mut Painter, meshes: &Meshes, rect: Rect, color: Color, we
             }
         }
     }
+}
+
+/// a tough piece's blocks for drawing, from (column, row, rect) with rows counting up: each
+/// block grown over the gaps to the piece's other blocks, whether nothing of the piece is
+/// below it, and the piece's bounds
+fn piece_faces(blocks: &[(i32, i32, Rect)]) -> (Vec<(Rect, bool)>, Rect) {
+    let find = |x: i32, y: i32| blocks.iter().find(|b| b.0 == x && b.1 == y).map(|b| b.2);
+    let faces = blocks
+        .iter()
+        .map(|&(x, y, rect)| {
+            let mut face = rect;
+            if let Some(right) = find(x + 1, y) {
+                face.w = right.x - rect.x;
+            }
+            if let Some(below) = find(x, y - 1) {
+                face.h = below.y - rect.y;
+            }
+            (face, find(x, y - 1).is_none())
+        })
+        .collect();
+    let left = blocks.iter().map(|b| b.2.x).fold(f32::MAX, f32::min);
+    let top = blocks.iter().map(|b| b.2.y).fold(f32::MAX, f32::min);
+    let right = blocks.iter().map(|b| b.2.right()).fold(f32::MIN, f32::max);
+    let bottom = blocks.iter().map(|b| b.2.bottom()).fold(f32::MIN, f32::max);
+    (faces, Rect::new(left, top, right - left, bottom - top))
+}
+
+/// the tough blocks locked on the board, grouped into pieces: touching tough blocks of a kind
+fn tough_pieces(playfield: &Playfield) -> Vec<Vec<(usize, usize)>> {
+    let (w, h) = (playfield::PLAYFIELD_SLOTS[0], playfield.slots.len());
+    let mut seen = vec![false; w * h];
+    let mut pieces = Vec::new();
+    for y in 0..h {
+        for x in 0..w {
+            let SlotState::Locked(rtype, Wear::Tough) = playfield.slots[y][x] else {
+                continue;
+            };
+            if seen[y * w + x] {
+                continue;
+            }
+            let mut piece = Vec::new();
+            let mut todo = vec![(x, y)];
+            while let Some((cx, cy)) = todo.pop() {
+                if seen[cy * w + cx]
+                    || playfield.slots[cy][cx] != SlotState::Locked(rtype, Wear::Tough)
+                {
+                    continue;
+                }
+                seen[cy * w + cx] = true;
+                piece.push((cx, cy));
+                if cx > 0 {
+                    todo.push((cx - 1, cy));
+                }
+                if cx + 1 < w {
+                    todo.push((cx + 1, cy));
+                }
+                if cy > 0 {
+                    todo.push((cx, cy - 1));
+                }
+                if cy + 1 < h {
+                    todo.push((cx, cy + 1));
+                }
+            }
+            pieces.push(piece);
+        }
+    }
+    pieces
 }
 
 /// a block of a glitch piece, calm scales how often it bursts
@@ -260,6 +338,7 @@ pub(super) fn draw_playfield(
     style: BlockStyle,
     ghost: bool,
     time: f32,
+    scene: &ToughScene,
 ) {
     // glitch pieces stop glitching under the game over curtain
     let calm = if game_over.is_some() { 0.0 } else { 1.0 };
@@ -297,20 +376,103 @@ pub(super) fn draw_playfield(
                     }
                 }
                 let rect = playfield_block_rect([x as i32, y as i32], staging_rect, playfield_rect);
+                let seed = y * playfield::PLAYFIELD_SLOTS[0] + x;
                 if *rtype == RustominoType::Glitch && clearing.is_none() {
-                    let seed = y * playfield::PLAYFIELD_SLOTS[0] + x;
                     let calm = calm * GLITCH_LOCKED;
                     draw_glitch_block(canvas, meshes, rect, color, style, time, seed, calm);
+                } else if *wear == Wear::Tough && game_over.is_none() {
+                    // drawn with its piece below
                 } else {
+                    let crack = crack_color(scene.background.style, color, time, seed);
                     draw_block(canvas, meshes, rect, color, style);
-                    draw_wear(canvas, meshes, rect, color, *wear);
+                    draw_wear(canvas, meshes, rect, color, *wear, crack);
+                }
+            }
+        }
+    }
+
+    // tough blocks show the scene through them, a piece at a time
+    if game_over.is_none() {
+        for piece in tough_pieces(playfield) {
+            let blocks: Vec<(i32, i32, Rect)> = piece
+                .iter()
+                .map(|&(x, y)| {
+                    let rect =
+                        playfield_block_rect([x as i32, y as i32], staging_rect, playfield_rect);
+                    (x as i32, y as i32, rect)
+                })
+                .collect();
+            let (faces, bounds) = piece_faces(&blocks);
+            for (&(x, y), (face, lowest)) in piece.iter().zip(faces) {
+                let SlotState::Locked(rtype, _) = playfield.slots[y][x] else {
+                    continue;
+                };
+                // icicles only hang over open space
+                let open_below = y > 0 && playfield.slots[y - 1][x] == SlotState::Empty;
+                let seed = y * playfield::PLAYFIELD_SLOTS[0] + x;
+                let color = rtype.color();
+                draw_tough(
+                    canvas,
+                    meshes,
+                    scene,
+                    face,
+                    bounds,
+                    color,
+                    lowest && open_below,
+                    seed,
+                );
+                // a line clear flashes it, but it stays
+                let flash = playfield
+                    .line_clear
+                    .as_ref()
+                    .filter(|line_clear| line_clear.lines.contains(&y))
+                    .map_or(0.0, |line_clear| {
+                        (1.0 - line_clear.progress() as f32 * 4.0).max(0.0)
+                    });
+                if flash > 0.0 {
+                    draw_rect(canvas, meshes, face, with_alpha(Color::WHITE, flash));
                 }
             }
         }
     }
 
     // draw the active rustomino over the locked blocks
-    if let Some(active) = &playfield.active_rustomino {
+    if let Some(active) = playfield
+        .active_rustomino
+        .as_ref()
+        .filter(|active| active.tough && game_over.is_none())
+    {
+        let blocks: Vec<(i32, i32, Rect)> = active
+            .playfield_slots()
+            .iter()
+            .map(|b| {
+                (
+                    b.x,
+                    b.y,
+                    playfield_block_rect([b.x, b.y], staging_rect, playfield_rect),
+                )
+            })
+            .collect();
+        let (faces, bounds) = piece_faces(&blocks);
+        for (i, (&(x, y, _), (face, lowest))) in blocks.iter().zip(faces).enumerate() {
+            let open_below = y > 0
+                && playfield
+                    .slots
+                    .get(y as usize - 1)
+                    .is_some_and(|row| row[x as usize] == SlotState::Empty);
+            let color = active.rtype.color();
+            draw_tough(
+                canvas,
+                meshes,
+                scene,
+                face,
+                bounds,
+                color,
+                lowest && open_below,
+                3000 + i,
+            );
+        }
+    } else if let Some(active) = &playfield.active_rustomino {
         for (i, block) in active.playfield_slots().into_iter().enumerate() {
             let rect = playfield_block_rect([block[0], block[1]], staging_rect, playfield_rect);
             let color = block_color(active.rtype, game_over, block[1]);
@@ -320,7 +482,7 @@ pub(super) fn draw_playfield(
             } else {
                 draw_block(canvas, meshes, rect, color, style);
                 if active.tough {
-                    draw_wear(canvas, meshes, rect, color, Wear::Tough);
+                    draw_wear(canvas, meshes, rect, color, Wear::Tough, color);
                 }
             }
         }
@@ -425,6 +587,7 @@ pub(super) fn ghost_outline(
     rects
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn draw_preview(
     canvas: &mut Painter,
     meshes: &Meshes,
@@ -433,6 +596,7 @@ pub(super) fn draw_preview(
     game_over: Option<&GameOver>,
     style: BlockStyle,
     time: f32,
+    scene: &ToughScene,
 ) {
     if let Some(rustomino) = rustomino {
         // center the piece's bounding box in the panel
@@ -450,6 +614,28 @@ pub(super) fn draw_preview(
         let left = snap(preview_rect.x + (preview_rect.w - width) / 2.0);
         let top = snap(preview_rect.y + (preview_rect.h - height) / 2.0);
         let color = block_color(rustomino.rtype, game_over, PREVIEW_ROW);
+        if rustomino.tough && game_over.is_none() {
+            // the scene through the whole piece, as on the board
+            let blocks: Vec<(i32, i32, Rect)> = rustomino
+                .blocks
+                .iter()
+                .map(|block| {
+                    let rect = Rect::new(
+                        left + (block.x - min.x) as f32 * cell,
+                        top + (max.y - block.y) as f32 * cell,
+                        block_size(),
+                        block_size(),
+                    );
+                    (block.x, block.y, rect)
+                })
+                .collect();
+            let (faces, bounds) = piece_faces(&blocks);
+            for (i, (face, _)) in faces.into_iter().enumerate() {
+                let seed = 4000 + i + preview_rect.x as usize;
+                draw_tough(canvas, meshes, scene, face, bounds, color, false, seed);
+            }
+            return;
+        }
         for (i, block) in rustomino.blocks.iter().enumerate() {
             let rect = Rect::new(
                 left + (block.x - min.x) as f32 * cell,
@@ -465,7 +651,7 @@ pub(super) fn draw_preview(
             } else {
                 draw_block(canvas, meshes, rect, color, style);
                 if rustomino.tough {
-                    draw_wear(canvas, meshes, rect, color, Wear::Tough);
+                    draw_wear(canvas, meshes, rect, color, Wear::Tough, color);
                 }
             }
         }
@@ -484,6 +670,7 @@ pub(super) fn draw_playing(
     style: &Style,
     assists: bool, // ghost and hold
     time: f32,     // seconds, drives the glitch pieces
+    scene: &ToughScene,
 ) {
     draw_playing_backgound(canvas, meshes, view_settings, style.board, assists);
     draw_playfield(
@@ -495,6 +682,7 @@ pub(super) fn draw_playing(
         style.block,
         assists,
         time,
+        scene,
     );
     if assists {
         draw_preview(
@@ -505,6 +693,7 @@ pub(super) fn draw_playing(
             game_over,
             style.block,
             time,
+            scene,
         );
     }
     draw_preview(
@@ -515,6 +704,7 @@ pub(super) fn draw_playing(
         game_over,
         style.block,
         time,
+        scene,
     );
 }
 
@@ -793,8 +983,9 @@ pub struct GameLayer<'a> {
     pub level_display: &'a ScoreDisplay,
     pub score_display: &'a ScoreDisplay,
     pub best: usize,
-    pub shake: Option<Vec2>,      // None when not shaking
-    pub glitch_time: Option<f32>, // fixed clock for glitch pieces, None runs with the game
+    pub shake: Option<Vec2>,        // None when not shaking
+    pub glitch_time: Option<f32>,   // fixed clock for glitch pieces, None runs with the game
+    pub background: &'a Background, // tough blocks show its scene
 }
 
 impl Layer for GameLayer<'_> {
@@ -806,6 +997,9 @@ impl Layer for GameLayer<'_> {
                 Rect::new(rect.x - shake.x, rect.y - shake.y, rect.w, rect.h),
             );
         }
+        let time = self
+            .glitch_time
+            .unwrap_or_else(|| frame.ctx.time.time_since_start().as_secs_f32());
         draw_playing(
             canvas,
             frame.meshes,
@@ -816,8 +1010,12 @@ impl Layer for GameLayer<'_> {
             self.game_over,
             self.style,
             self.assists,
-            self.glitch_time
-                .unwrap_or_else(|| frame.ctx.time.time_since_start().as_secs_f32()),
+            time,
+            &ToughScene {
+                background: self.background,
+                board: frame.view.playfield_rect,
+                time,
+            },
         );
         draw_level_progress(
             canvas,

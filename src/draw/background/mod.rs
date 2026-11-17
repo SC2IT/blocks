@@ -3,6 +3,10 @@ mod stars;
 mod storm;
 
 pub use storm::{storm_strike_time, StrikeKind};
+// for tough blocks, which show the storm through them
+pub(in crate::draw) use storm::{
+    sea_wave, storm_strike, CREST_COLOR, FLASH_COLOR, SEA_LAYERS, WHITEOUT_COLOR,
+};
 
 use plasma::*;
 use stars::*;

@@ -1139,6 +1139,7 @@ impl BlocksState {
             best: self.scores.best().max(self.score_display.shown()),
             shake: shaking.then(|| self.effects.shake()),
             glitch_time: self.screenshot.as_ref().map(|_| screenshot::glitch_time()),
+            background: &self.background,
         }
     }
 

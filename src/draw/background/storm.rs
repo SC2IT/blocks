@@ -8,7 +8,7 @@ use crate::draw::*;
 
 pub(super) const SEA_LEVEL: f32 = 0.75; // sea fills the view below this
 pub(super) const SEA_STRIP: f32 = 6.0; // px per wave column
-pub(super) const SEA_LAYERS: [(Color, f32, f32); 3] = [
+pub(in crate::draw) const SEA_LAYERS: [(Color, f32, f32); 3] = [
     // color, depth into the sea, wave height in px
     (Color::new(0.09, 0.15, 0.2, 1.0), 0.0, 10.0),
     (Color::new(0.05, 0.1, 0.15, 1.0), 0.22, 16.0),
@@ -16,7 +16,7 @@ pub(super) const SEA_LAYERS: [(Color, f32, f32); 3] = [
 ];
 pub(super) const SEA_SPEED: f32 = 0.9;
 pub(super) const SEA_SURGE: f32 = 1.2; // extra wave height at full energy
-pub(super) const CREST_COLOR: Color = Color::new(0.55, 0.68, 0.78, 1.0);
+pub(in crate::draw) const CREST_COLOR: Color = Color::new(0.55, 0.68, 0.78, 1.0);
 pub(super) const FOAM_SLOPE: f32 = 0.9; // steeper crests break white
 pub(super) const RAIN_DROPS: (usize, usize) = (260, 800); // calm to full storm, most of them up front
 pub(super) const RAIN_FALL: f32 = 0.55; // views per second
@@ -37,7 +37,7 @@ pub(super) const RAIN_COLOR: Color = Color::new(0.6, 0.7, 0.85, 1.0);
 pub(super) const SEA_SCALE: [f32; 3] = [0.6, 0.9, 1.3]; // splash and spray size per sea layer, far to near
 pub(super) const WHITEOUT_BANKS: usize = 14;
 pub(super) const WHITEOUT_VEIL: (f32, f32) = (0.22, 0.62); // how washed out the sky and the sea get at the peak
-pub(super) const WHITEOUT_COLOR: Color = Color::new(0.42, 0.47, 0.54, 1.0); // storm gray, light text stays readable
+pub(in crate::draw) const WHITEOUT_COLOR: Color = Color::new(0.42, 0.47, 0.54, 1.0); // storm gray, light text stays readable
 pub(super) const LEVEL_UP_FLASH: f32 = 0.25; // of the level up, how long the opening flash takes to fade
 pub(super) const LEVEL_UP_WHITE: f32 = 0.55; // brightest the sky gets at the opening flash
 pub(super) const LEVEL_UP_BOLTS: usize = 6; // bolts in the level up barrage
@@ -55,10 +55,10 @@ pub(super) const BOLT_SEGMENTS: usize = 16;
 pub(super) const BOLT_COLOR: Color = Color::new(0.85, 0.9, 1.0, 1.0);
 pub(super) const BOLT_GLOW_COLOR: Color = Color::new(0.55, 0.65, 1.0, 1.0);
 pub(super) const BOLT_BLOOM: [(f32, f32); 2] = [(14.0, 0.3), (4.0, 0.6)]; // (width in bolt sizes, strength)
-pub(super) const FLASH_COLOR: Color = Color::new(0.75, 0.82, 1.0, 1.0);
+pub(in crate::draw) const FLASH_COLOR: Color = Color::new(0.75, 0.82, 1.0, 1.0);
 
 /// lightning strike at a moment: (strike number, brightness 0.0 to 1.0)
-pub(super) fn storm_strike(time: f32) -> Option<(usize, f32)> {
+pub(in crate::draw) fn storm_strike(time: f32) -> Option<(usize, f32)> {
     let k = (time / STRIKE_PERIOD).floor().max(0.0) as usize;
     if hash(k, 21.0) > STRIKE_CHANCE {
         return None;
@@ -131,7 +131,7 @@ pub fn storm_strike_time(kind: StrikeKind, storm: f32) -> f32 {
 }
 
 /// height of a sea layer at x, 0.0 is calm
-pub(super) fn sea_wave(x: f32, layer: usize, time: f32) -> f32 {
+pub(in crate::draw) fn sea_wave(x: f32, layer: usize, time: f32) -> f32 {
     let t = time * SEA_SPEED;
     let l = layer as f32 * 1.7;
     0.55 * (x * 0.011 + t * 1.3 + l).sin()

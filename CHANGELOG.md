@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   above them drop onto them; a cracked block goes with the next clear
   through it. About 1 in 25 pieces is tough at level 1, rising to 1 in 10
   by level 15. Glitch pieces are never tough, and a held piece stays tough.
+  Tough pieces show the background through them, with no outline: the star
+  flight under a steady glow of the piece's color, the plasma in a grid,
+  the storm's rain, sea and lightning with icicles below, or calm static,
+  speeding up and building with the level like the background. Cracked
+  blocks keep a trace of it in their crack.
 - `glitch` screenshot scene, with `GLITCH_TIME` to pick the moment.
 - Animation viewer (F12 from the menu): G picks the test piece for the
   falling animations, any of the seven pieces or any glitch shape; a Glitch Pieces entry shows
