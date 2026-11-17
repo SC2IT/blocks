@@ -1,8 +1,10 @@
 use std::cmp::Ordering;
+
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
+use strum::IntoEnumIterator;
 
 use ggez::input::keyboard::KeyCode;
 
@@ -13,8 +15,9 @@ use crate::{
     draw,
     effects::Effects,
     level_progress::LevelProgress,
+    playfield::SlotState,
     playfield::{Playfield, TranslationDirection, PLAYFIELD_SLOTS},
-    rustomino::{Rotation, Rustomino, RustominoType},
+    rustomino::{GlitchShape, Rotation, Rustomino, RustominoType},
     score_display::ScoreDisplay,
     scores::{Initials, ScoreBoard},
     style::{self, BlockStyle, Style},
@@ -63,10 +66,11 @@ pub enum Animation {
     NewHighScore,
     HighScores,
     Background,
+    GlitchPieces,
 }
 
 impl Animation {
-    pub const ALL: [Animation; 13] = [
+    pub const ALL: [Animation; 14] = [
         Animation::Gravity,
         Animation::SoftDrop,
         Animation::HardDrop,
@@ -80,6 +84,7 @@ impl Animation {
         Animation::NewHighScore,
         Animation::HighScores,
         Animation::Background,
+        Animation::GlitchPieces,
     ];
 
     pub fn name(self) -> &'static str {
@@ -97,6 +102,7 @@ impl Animation {
             Animation::NewHighScore => "New High Score",
             Animation::HighScores => "High Scores",
             Animation::Background => "Background",
+            Animation::GlitchPieces => "Glitch Pieces",
         }
     }
 
@@ -113,6 +119,7 @@ impl Animation {
             Animation::HighScores => 2.0,
             // calm, a surge per clear size, level up, game over freeze, thaw
             Animation::Background => background_cue(SURGES + 3) + THAW_TIME as f64 + THAW_GAP,
+            Animation::GlitchPieces => 3.0,
         }
     }
 
@@ -139,6 +146,7 @@ pub struct DebugView {
     landed: Option<f64>, // when the falling piece locked
     step: f64,           // soft drop repeat
     surges: usize,       // background cues fired
+    piece: usize,        // test piece for the falling animations: 0 is a T, then the glitch shapes
     saved: Option<(ScoreBoard, Style, BackgroundStyle)>, // restored on close
     pub stats: FrameStats,
     pub recording: Option<Recording>, // frame samples going to a csv
@@ -324,6 +332,7 @@ impl DebugView {
             landed: None,
             step: 0.0,
             surges: 0,
+            piece: 0,
             saved: None,
             stats: FrameStats::default(),
             recording: None,
@@ -342,7 +351,36 @@ impl DebugView {
     pub fn fps(&self) -> u32 {
         FPS[self.fps]
     }
+
+    fn glitch_shape(&self) -> Option<GlitchShape> {
+        self.piece
+            .checked_sub(1)
+            .and_then(|i| GlitchShape::iter().nth(i))
+    }
+
+    /// the piece the falling animations drop
+    fn test_piece(&self) -> Rustomino {
+        self.glitch_shape()
+            .map_or_else(|| Rustomino::new(RustominoType::T), Rustomino::glitch)
+    }
+
+    /// the test piece's name, for the panel
+    pub fn piece_name(&self) -> String {
+        self.glitch_shape()
+            .map_or_else(|| "T".to_string(), |shape| format!("{shape:?}"))
+    }
 }
+
+/// where the glitch pieces sit in the showcase: shape, left column, bottom row of its box
+const GLITCH_SHOWCASE: [(GlitchShape, i32, i32); 7] = [
+    (GlitchShape::Split, 1, 15),
+    (GlitchShape::Kink, 6, 15),
+    (GlitchShape::Hook, 1, 10),
+    (GlitchShape::Drip, 5, 10),
+    (GlitchShape::Antlers, 1, 5),
+    (GlitchShape::Diamond, 6, 5),
+    (GlitchShape::Corners, 1, 0),
+];
 
 impl BlocksState {
     pub(super) fn open_debug(&mut self) {
@@ -426,15 +464,15 @@ impl BlocksState {
             Animation::Quad => self.debug_clear(4, 2),
             Animation::LevelUp => self.debug_clear(2, LINES_PER_LEVEL - 2),
             Animation::HardDrop => {
-                self.spawn(Rustomino::new(RustominoType::T));
+                self.spawn(self.debug.test_piece());
                 self.playfield.translate_active(TranslationDirection::Right);
                 self.hard_drop();
             }
             Animation::Gravity | Animation::SoftDrop => {
-                self.spawn(Rustomino::new(RustominoType::T));
+                self.spawn(self.debug.test_piece());
             }
             Animation::Lock => {
-                self.spawn(Rustomino::new(RustominoType::T));
+                self.spawn(self.debug.test_piece());
                 self.playfield.translate_active(TranslationDirection::Right);
                 let rows = match (
                     &self.playfield.active_rustomino,
@@ -476,6 +514,18 @@ impl BlocksState {
             }
             // background alone
             Animation::Background => self.debug.view = GameState::Debug,
+            // all seven glitch shapes locked on an empty board, glitching
+            Animation::GlitchPieces => {
+                self.playfield = Playfield::new();
+                for (shape, x, y) in GLITCH_SHOWCASE {
+                    for block in Rustomino::glitch(shape).blocks {
+                        let (col, row) = ((x + block.x) as usize, (y + block.y) as usize);
+                        self.playfield.slots[row][col] = SlotState::Locked(RustominoType::Glitch);
+                    }
+                }
+                self.next_rustomino = Some(Rustomino::glitch(GlitchShape::Drip));
+                self.held_rustomino = Some(Rustomino::glitch(GlitchShape::Diamond));
+            }
         }
     }
 
@@ -623,6 +673,24 @@ impl BlocksState {
                 } else {
                     (self.debug.fps + 1) % count
                 };
+            }
+            KeyCode::KeyG if !repeated => {
+                // pick the test piece for the falling animations
+                let count = GlitchShape::iter().count() + 1;
+                self.debug.piece = if shift {
+                    (self.debug.piece + count - 1) % count
+                } else {
+                    (self.debug.piece + 1) % count
+                };
+                self.assets.play(Sfx::MenuMove);
+                self.start_animation();
+            }
+            KeyCode::KeyN if !repeated => {
+                // a real game where every piece is a glitch piece
+                self.close_debug();
+                self.new_game();
+                self.rustomino_bag.glitch_every_piece = true;
+                self.resume();
             }
             KeyCode::KeyB => self.background.cycle(1),
             KeyCode::KeyS => self.style.block = style::cycle(&BlockStyle::ALL, self.style.block, 1),

@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   15, never two in a row, and the regular pieces still come in fair sets
   of seven.
 - `glitch` screenshot scene, with `GLITCH_TIME` to pick the moment.
+- Animation viewer (F12 from the menu): G picks the test piece for the
+  falling animations, T or any glitch shape; a Glitch Pieces entry shows
+  all seven shapes at once; and N starts a game where every piece is a
+  glitch piece.
 
 - Storm level up: a white flash, a barrage of six lightning bolts sweeping
   across the sea, and the sea heaving up into the new level's state.

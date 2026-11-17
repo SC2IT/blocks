@@ -5,8 +5,10 @@ use crate::draw::*;
 
 pub(super) const DEBUG_ROW_HEIGHT: f32 = 26.0;
 pub(super) const DEBUG_PANEL_GAP: f32 = 24.0; // below the hold and next previews
-pub(super) const DEBUG_HINTS: [&str; 12] = [
+pub(super) const DEBUG_HINTS: [&str; 14] = [
     "Up/Down: pick",
+    "G/Shift G: test piece",
+    "N: play, all glitches",
     "Enter: restart",
     "R: replay on/off",
     "Left/Right: speed",
@@ -39,6 +41,7 @@ pub struct DebugScreen<'a> {
     pub replay: bool,
     pub level: usize,
     pub fps: u32,
+    pub piece: &'a str,            // test piece for the falling animations
     pub stats: Option<FrameStats>, // None until the first window is averaged
     pub recording: bool,
 }
@@ -53,6 +56,7 @@ impl Layer for DebugScreen<'_> {
             replay,
             level,
             fps,
+            piece,
             stats,
             recording,
         } = *self;
@@ -66,7 +70,7 @@ impl Layer for DebugScreen<'_> {
         // animations, right of the playfield
         let left = view_settings.preview_rect.x;
         let width = (view.w - left - PANEL_PADDING).max(view_settings.preview_rect.w);
-        let rows = names.len() + 4;
+        let rows = names.len() + 5;
         let panel = Rect::new(
             left,
             top,
@@ -94,11 +98,12 @@ impl Layer for DebugScreen<'_> {
         };
         let replay = if replay { "Replay On" } else { "Replay Off" };
         let level = format!("Level {level}  {fps} FPS");
-        for (i, line) in [status.as_str(), replay, level.as_str()]
+        let piece = format!("Piece: {piece}");
+        for (i, line) in [status.as_str(), replay, level.as_str(), piece.as_str()]
             .into_iter()
             .enumerate()
         {
-            let row = menu_row_rect(panel, rows - 3 + i, DEBUG_ROW_HEIGHT);
+            let row = menu_row_rect(panel, rows - 4 + i, DEBUG_ROW_HEIGHT);
             let text = ui_text(line, SMALL_TEXT_SIZE);
             draw_text_centered(ctx, canvas, &text, row.center().into(), LABEL_COLOR)?;
         }

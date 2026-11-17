@@ -804,7 +804,8 @@ fn neg_trans(block_trans: [IVec2; 4]) -> [IVec2; 4] {
 pub struct RustominoBag {
     bag: Vec<RustominoType>, // contains the next rustomino types, shuffled
     rng: rand_xoshiro::Xoshiro256PlusPlus,
-    last_glitched: bool, // never two glitch pieces in a row
+    last_glitched: bool,          // never two glitch pieces in a row
+    pub glitch_every_piece: bool, // testing from the viewer: every piece a glitch, all seven shapes
 }
 
 impl RustominoBag {
@@ -813,10 +814,17 @@ impl RustominoBag {
             bag: Vec::new(),
             rng: rand::make_rng(),
             last_glitched: false,
+            glitch_every_piece: false,
         }
     }
 
     pub fn get_next(&mut self, level: usize, mode: Mode) -> Rustomino {
+        if self.glitch_every_piece {
+            let shape = *GlitchShape::in_mode(Mode::Hard)
+                .choose(&mut self.rng)
+                .expect("hard deals every glitch shape");
+            return Rustomino::glitch(shape);
+        }
         // now and then slip in a glitch piece, the bag keeps its piece for next time
         let glitch = !self.last_glitched && self.rng.random_bool(glitch_chance(level));
         self.last_glitched = glitch;
@@ -996,6 +1004,22 @@ mod tests {
             for shape in allowed {
                 assert!(dealt.contains(&shape), "{mode:?} never dealt {shape:?}");
             }
+        }
+    }
+
+    #[test]
+    fn testing_deals_a_glitch_every_piece() {
+        let mut bag = RustominoBag::new();
+        bag.glitch_every_piece = true;
+        let dealt: Vec<GlitchShape> = (0..300)
+            .map(|_| {
+                bag.get_next(1, Mode::Normal)
+                    .glitch
+                    .expect("a glitch piece")
+            })
+            .collect();
+        for shape in GlitchShape::iter() {
+            assert!(dealt.contains(&shape), "never dealt {shape:?}");
         }
     }
 

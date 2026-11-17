@@ -1090,6 +1090,7 @@ impl BlocksState {
                 replay: self.debug.replay,
                 level: self.debug.level,
                 fps: self.debug.fps(),
+                piece: &self.debug.piece_name(),
                 stats: self.debug.stats.shown,
                 recording: self.debug.recording.is_some(),
             }
