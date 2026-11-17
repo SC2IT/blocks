@@ -70,11 +70,12 @@ pub enum Animation {
     HighScores,
     Background,
     GlitchPieces,
+    ToughPieces,
     ToughClear,
 }
 
 impl Animation {
-    pub const ALL: [Animation; 15] = [
+    pub const ALL: [Animation; 16] = [
         Animation::Gravity,
         Animation::SoftDrop,
         Animation::HardDrop,
@@ -89,6 +90,7 @@ impl Animation {
         Animation::HighScores,
         Animation::Background,
         Animation::GlitchPieces,
+        Animation::ToughPieces,
         Animation::ToughClear,
     ];
 
@@ -108,6 +110,7 @@ impl Animation {
             Animation::HighScores => "High Scores",
             Animation::Background => "Background",
             Animation::GlitchPieces => "Glitch Pieces",
+            Animation::ToughPieces => "Tough Pieces",
             Animation::ToughClear => "Tough Clear",
         }
     }
@@ -129,7 +132,7 @@ impl Animation {
             Animation::HighScores => 2.0,
             // calm, a surge per clear size, level up, game over freeze, thaw
             Animation::Background => background_cue(SURGES + 3) + THAW_TIME as f64 + THAW_GAP,
-            Animation::GlitchPieces => 3.0,
+            Animation::GlitchPieces | Animation::ToughPieces => 3.0,
         }
     }
 
@@ -390,6 +393,19 @@ impl DebugView {
     }
 }
 
+/// where the tough pieces sit in the showcase: piece, left column, bottom row of its box
+const TOUGH_SHOWCASE: [(RustominoType, i32, i32); 7] = [
+    (RustominoType::I, 0, 16),
+    (RustominoType::O, 5, 15),
+    (RustominoType::T, 0, 12),
+    (RustominoType::L, 5, 12),
+    (RustominoType::J, 0, 8),
+    (RustominoType::S, 5, 8),
+    (RustominoType::Z, 0, 4),
+];
+// cracked blocks along the bottom, one of each, digits 1 to 7 for I O T L J S Z
+const CRACKED_ROW: &str = "1234567...";
+
 /// where the glitch pieces sit in the showcase: shape, left column, bottom row of its box
 const GLITCH_SHOWCASE: [(GlitchShape, i32, i32); 7] = [
     (GlitchShape::Split, 1, 15),
@@ -535,6 +551,24 @@ impl BlocksState {
             }
             // background alone
             Animation::Background => self.debug.view = GameState::Debug,
+            // all seven pieces locked tough on an empty board, showing the scene, and a row
+            // of cracked blocks
+            Animation::ToughPieces => {
+                self.playfield = Playfield::new();
+                for (rtype, x, y) in TOUGH_SHOWCASE {
+                    for block in Rustomino::new(rtype).blocks {
+                        let (col, row) = ((x + block.x) as usize, (y + block.y) as usize);
+                        self.playfield.slots[row][col] = SlotState::Locked(rtype, Wear::Tough);
+                    }
+                }
+                self.fill_rows(0, &[CRACKED_ROW]);
+                let mut next = Rustomino::new(RustominoType::T);
+                next.tough = true;
+                let mut held = Rustomino::new(RustominoType::I);
+                held.tough = true;
+                self.next_rustomino = Some(next);
+                self.held_rustomino = Some(held);
+            }
             // all seven glitch shapes locked on an empty board, glitching
             Animation::GlitchPieces => {
                 self.playfield = Playfield::new();

@@ -41,7 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Animation viewer (F12 from the menu): G picks the test piece for the
   falling animations, any of the seven pieces or any glitch shape; a Glitch Pieces entry shows
   all seven shapes at once; and N starts a game where every piece is a
-  glitch piece. T makes the test piece tough, a Tough Clear entry shows
+  glitch piece. T makes the test piece tough, a Tough Pieces entry shows all seven pieces
+  tough with a row of cracked blocks, a Tough Clear entry shows
   tough blocks cracking and cracked ones going, and Shift N starts a game
   where every regular piece is tough.
 
