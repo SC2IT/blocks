@@ -214,6 +214,10 @@ impl Playfield {
         let mut origins: Vec<usize> = landed.iter().map(|slot| slot.x as usize).collect();
         origins.sort_unstable();
         origins.dedup();
+        // a clear left full by the last one wipes out from the middle
+        if origins.is_empty() {
+            origins = vec![PLAYFIELD_SLOTS[0] / 2 - 1, PLAYFIELD_SLOTS[0] / 2];
+        }
         self.line_clear = Some(LineClear {
             lines,
             origins,
@@ -466,6 +470,23 @@ mod tests {
         // elsewhere the line goes and what's above drops into it
         assert_eq!(playfield.slots[0][5], whole());
         assert_eq!(playfield.slots[1][5], SlotState::Empty);
+        assert_eq!(playfield.slots[0][0], SlotState::Empty);
+    }
+
+    #[test]
+    fn a_line_left_full_of_cracked_blocks_clears_straight_away() {
+        let mut playfield = Playfield::new();
+        playfield.slots[0] = [tough(); W];
+        playfield.slots[1][3] = whole();
+        assert_eq!(playfield.start_line_clear(0.1, &[]), 1);
+        playfield.update_line_clear(0.2);
+        // every block survived, cracked, so the bottom line is still full
+        assert_eq!(playfield.slots[0], [cracked(); W]);
+        // and the next clear, with no piece landed, takes it
+        assert_eq!(playfield.start_line_clear(0.1, &[]), 1);
+        playfield.update_line_clear(0.2);
+        assert_eq!(playfield.slots[0][3], whole());
+        assert!(playfield.get_complete_lines().is_empty());
         assert_eq!(playfield.slots[0][0], SlotState::Empty);
     }
 

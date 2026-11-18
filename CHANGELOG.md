@@ -39,7 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tough pieces: now and then a regular piece arrives tough, in every mode.
   When a line clears, its tough blocks survive, cracked, and the blocks
   above them drop onto them; a cracked block goes with the next clear
-  through it. About 1 in 20 pieces is tough at level 1, rising to 1 in 8
+  through it. A line left full after a clear, such as one that was all
+  tough, clears straight away and scores again, so cracked blocks never
+  fill a line. About 1 in 20 pieces is tough at level 1, rising to 1 in 8
   by level 15. Glitch pieces are never tough, and a held piece stays tough.
   Tough pieces show the background through them, with no outline: the star
   flight under a steady glow of the piece's color, the plasma in a grid,

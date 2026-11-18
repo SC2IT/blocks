@@ -1407,6 +1407,10 @@ impl EventHandler for BlocksState {
                     self.background.update(delta_time, self.level);
                     if self.playfield.is_clearing_lines() {
                         self.playfield.update_line_clear(delta_time);
+                        // tough blocks can leave a line full, cracked: it clears straight away
+                        if !self.playfield.is_clearing_lines() {
+                            self.handle_completed_lines(&[]);
+                        }
                     } else if self.ready_playfield() {
                         self.playing_update(delta_time);
                     }
