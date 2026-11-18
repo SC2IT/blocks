@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The game is now Bitrot. The name shows on the menu, the board and the
+  window, in piece colors, and now and then a letter or two glitches with a
+  magenta and cyan split. Low Sensory holds the T and the O mid glitch
+  instead. Settings and high scores are saved in their own Bitrot folder,
+  copied from Blocks' the first time Bitrot runs, so the two can be played
+  side by side. The program file is still `blocks`.
 - Low Sensory option on the Options page. It holds the background still in
   full color, with no line clear surge or level up rush; the level still sets
   the storm, which keeps one lightning bolt lit. Glitch pieces hold their color

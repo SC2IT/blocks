@@ -26,7 +26,7 @@ pub use screens::{
     DebugScreen, FrameStats, GameOverScreen, HighScoresScreen, MenuScreen, NameEntryScreen,
     OptionRow, OptionsScreen, PausedScreen,
 };
-pub use text::set_pixel_scale;
+pub use text::{set_pixel_scale, GAME_NAME};
 pub use widgets::Overlay;
 
 const BLOCK_SIZE: f32 = 30.;
@@ -64,6 +64,8 @@ pub struct Frame<'a> {
     pub meshes: &'a Meshes,
     pub view: &'a ViewSettings,
     pub block: BlockStyle,
+    pub glitch_time: f32,  // seconds, drives the title's glitches
+    pub low_sensory: bool, // the title holds still, two letters mid glitch
 }
 
 /// a screen or overlay, drawn over the background

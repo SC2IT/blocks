@@ -1031,6 +1031,11 @@ impl BlocksState {
             meshes: &self.meshes,
             view: &self.view_settings,
             block: self.style.block,
+            glitch_time: self.screenshot.as_ref().map_or_else(
+                || ctx.time.time_since_start().as_secs_f32(),
+                |_| screenshot::glitch_time(),
+            ),
+            low_sensory: self.background.low_sensory,
         };
 
         // layers for the game states, bottom first

@@ -750,6 +750,7 @@ pub(super) fn draw_playing(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn draw_playing_text(
     canvas: &mut Painter,
     level: &ScoreDisplay,
@@ -757,13 +758,15 @@ pub(super) fn draw_playing_text(
     best: usize,
     view_settings: &ViewSettings,
     hold_shown: bool,
+    time: f32,   // seconds, for the name's glitches
+    still: bool, // low sensory
 ) -> GameResult {
     let label_size = UI_FONT_SIZE * 0.75;
     let label_offset = Vec2::new(0.0, -(label_size + FRAME_WIDTH + 8.0));
     let hold = view_settings.hold_rect;
     let preview = view_settings.preview_rect;
 
-    draw_piece_colored(canvas, "Blocks!", view_settings.title_pos, UI_FONT_SIZE);
+    draw_game_name(canvas, view_settings.title_pos, UI_FONT_SIZE, time, still);
     if hold_shown {
         draw_text(
             canvas,
@@ -1113,6 +1116,8 @@ impl Layer for GameLayer<'_> {
             self.best,
             frame.view,
             self.assists,
+            time,
+            self.background.low_sensory,
         )?;
         if let Some(rect) = screen {
             set_screen_coordinates(canvas, rect);

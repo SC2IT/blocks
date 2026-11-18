@@ -79,7 +79,42 @@ impl Settings {
 }
 
 fn project_dirs() -> Option<ProjectDirs> {
+    ProjectDirs::from("", "Scott Cummings", "Bitrot")
+}
+
+/// the folders Blocks saved to before the rename
+fn old_project_dirs() -> Option<ProjectDirs> {
     ProjectDirs::from("", "Scott Cummings", "Blocks")
+}
+
+/// the first time Bitrot runs, bring over the settings and high scores Blocks saved
+pub fn carry_over() {
+    let (Some(old), Some(new)) = (old_project_dirs(), project_dirs()) else {
+        return;
+    };
+    for (from, to) in [
+        (old.config_dir(), new.config_dir()),
+        (old.data_dir(), new.data_dir()),
+    ] {
+        if let Err(e) = copy_new_folder(from, to) {
+            log::warn!("could not copy {from:?} to {to:?}: {e}");
+        }
+    }
+}
+
+/// copy the files in from into to, only when to doesn't exist yet
+fn copy_new_folder(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {
+    if to.exists() || !from.is_dir() {
+        return Ok(());
+    }
+    fs::create_dir_all(to)?;
+    for entry in fs::read_dir(from)? {
+        let entry = entry?;
+        if entry.file_type()?.is_file() {
+            fs::copy(entry.path(), to.join(entry.file_name()))?;
+        }
+    }
+    Ok(())
 }
 
 pub fn config_path(file: &str) -> Option<PathBuf> {
@@ -150,6 +185,27 @@ mod tests {
         };
         let text = toml::to_string(&settings).unwrap();
         assert_eq!(toml::from_str::<Settings>(&text).unwrap(), settings);
+    }
+
+    #[test]
+    fn carry_over_copies_once() {
+        let root = std::env::temp_dir().join(format!("bitrot-carry-{}", std::process::id()));
+        let (from, to) = (root.join("Blocks"), root.join("Bitrot"));
+        fs::create_dir_all(&from).unwrap();
+        fs::write(from.join("settings.toml"), "music_level = 2").unwrap();
+        copy_new_folder(&from, &to).unwrap();
+        assert_eq!(
+            fs::read_to_string(to.join("settings.toml")).unwrap(),
+            "music_level = 2"
+        );
+        // once Bitrot has its own folder, Blocks' changes stay out of it
+        fs::write(from.join("settings.toml"), "music_level = 7").unwrap();
+        copy_new_folder(&from, &to).unwrap();
+        assert_eq!(
+            fs::read_to_string(to.join("settings.toml")).unwrap(),
+            "music_level = 2"
+        );
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

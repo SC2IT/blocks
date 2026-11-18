@@ -49,14 +49,15 @@ fn main() {
     });
 
     let settings = if screenshot.is_none() {
+        settings::carry_over();
         settings::Settings::load()
     } else {
         settings::Settings::default()
     };
 
     // setup game context
-    let mut builder = ContextBuilder::new("Blocks", "Scott Cummings")
-        .window_setup(conf::WindowSetup::default().title("Blocks"))
+    let mut builder = ContextBuilder::new("Bitrot", "Scott Cummings")
+        .window_setup(conf::WindowSetup::default().title(draw::GAME_NAME))
         .window_mode(game::window_mode(screenshot.is_some(), &settings.window))
         .add_resource_path(resource_dir);
     if let Some(dir) = bundle_resource_dir() {

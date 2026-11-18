@@ -1,4 +1,7 @@
-# blocks
+# Bitrot
+
+Bitrot is a falling-block puzzle game, a take on [Blocks](https://github.com/ScottCUSA/blocks)
+with glitch pieces, tough blocks and four modes.
 
 ![screenshot](img/Blocks-Screenshot.png)
 
@@ -21,7 +24,7 @@ Pushing a `v*` tag runs the same scripts in CI and publishes a GitHub release.
 Optional arguments: `[version] [out_dir]`.
 
 # license
-Blocks is licensed under the [Mozilla Public License 2.0](LICENSE).
+Bitrot, like Blocks, is licensed under the [Mozilla Public License 2.0](LICENSE).
 
 It includes open source crates under their own licenses, listed in
 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md). The 04b30 font is freeware

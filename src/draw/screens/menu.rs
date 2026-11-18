@@ -18,13 +18,14 @@ impl Layer for MenuScreen<'_> {
         let view_settings = frame.view;
         let style = frame.block;
         let view_rect = &view_settings.view_rect;
-        draw_title(
+        draw_name_title(
             ctx,
             canvas,
-            "Blocks!",
             view_rect.h * 0.16,
             TITLE_SIZE,
             view_rect,
+            frame.glitch_time,
+            frame.low_sensory,
         )?;
         let panel = menu_panel_rect(
             view_rect,

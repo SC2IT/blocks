@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Blocks</string>
+    <string>Bitrot</string>
     <key>CFBundleDisplayName</key>
-    <string>Blocks</string>
+    <string>Bitrot</string>
     <key>CFBundleIdentifier</key>
     <string>io.github.scottcusa.blocks</string>
     <key>CFBundleExecutable</key>
