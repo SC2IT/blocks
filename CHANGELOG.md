@@ -19,7 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   full color, with no line clear surge or level up rush; the level still sets
   the storm, which keeps one lightning bolt lit. Glitch pieces hold their color
   split without bursting, tough blocks' static holds, and the board no longer
-  shakes. Saved as `low_sensory` in `settings.toml`.
+  shakes. Music and sound play at no more than half volume, and their
+  sliders still go lower; the top half of each slider is crossed out. Turning
+  it off brings back the saved volumes. While it's on, the home screen says
+  "Low Sensory On" and how to turn it off. Saved as `low_sensory` in
+  `settings.toml`.
 - Four modes: Normal, Medium, Hard and Extreme. Extreme plays like the old
   Hard mode, speeding up to instant drops by level 19 with no hold or ghost
   piece. Normal, Medium and Hard keep hold and the ghost piece and stop

@@ -26,8 +26,8 @@ pub(super) const CONTROLS: [(&str, &str); 6] = [
 /// what an options row shows on its right
 pub enum OptionRow<'a> {
     Choice(&'a str, bool), // value, locked
-    Slider(u8),
-    Link, // opens another page: centered like Back, at the label size
+    Slider(u8, u8),        // level, and the highest it can go
+    Link,                  // opens another page: centered like Back, at the label size
     Back,
 }
 
@@ -152,12 +152,13 @@ impl Layer for OptionsScreen<'_> {
                         draw_block(canvas, meshes, rect, arrow_color, style.block);
                     }
                 }
-                OptionRow::Slider(level) => draw_slider(
+                OptionRow::Slider(level, cap) => draw_slider(
                     canvas,
                     meshes,
                     right_x,
                     center_y,
                     *level,
+                    *cap,
                     max_level,
                     style.block,
                 ),

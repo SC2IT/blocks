@@ -80,6 +80,7 @@ const MUSIC_THEMES: [(&str, &str); 6] = [
 ];
 const VOLUME_LEVELS: u8 = 10; // steps on the options volume sliders
 pub const DEFAULT_VOLUME_LEVEL: u8 = 5;
+const LOW_SENSORY_VOLUME_CAP: u8 = VOLUME_LEVELS / 2; // half of full, the sliders still go lower
 const MUSIC_VOL_MAX: f32 = 0.2;
 const MUSIC_LEVEL_SPEEDUP: f32 = 0.02; // tempo gained per level
 const MUSIC_MAX_SPEED: f32 = 1.3; // tempo cap
@@ -1172,7 +1173,9 @@ impl BlocksState {
 
     /// change the selected option's setting
     fn adjust_option(&mut self, delta: i8) {
-        let step = |level: u8| (level as i8 + delta).clamp(0, VOLUME_LEVELS as i8) as u8;
+        // from the level heard, so the first step down past the cap is heard
+        let cap = self.volume_cap();
+        let step = |level: u8| (level.min(cap) as i8 + delta).clamp(0, cap as i8) as u8;
         if self.audio_open {
             match self.audio_state.selected() {
                 menus::AUDIO_THEME => {
@@ -1184,11 +1187,11 @@ impl BlocksState {
                 }
                 menus::AUDIO_MUSIC => {
                     self.music_level = step(self.music_level);
-                    self.assets.set_music_level(self.music_level);
+                    self.apply_volumes();
                 }
                 menus::AUDIO_SOUND => {
                     self.sound_level = step(self.sound_level);
-                    self.assets.set_sound_level(self.sound_level);
+                    self.apply_volumes();
                 }
                 menus::AUDIO_UNFOCUSED => self.play_unfocused = !self.play_unfocused,
                 _ => return,
@@ -1204,7 +1207,10 @@ impl BlocksState {
             menus::OPTION_BLOCKS => {
                 self.style.block = style::cycle(&BlockStyle::ALL, self.style.block, delta as isize)
             }
-            menus::OPTION_LOW_SENSORY => self.background.low_sensory = !self.background.low_sensory,
+            menus::OPTION_LOW_SENSORY => {
+                self.background.low_sensory = !self.background.low_sensory;
+                self.apply_volumes();
+            }
             menus::OPTION_BOARD => {
                 self.style.board = style::cycle(&BoardStyle::ALL, self.style.board, delta as isize)
             }
@@ -1235,8 +1241,8 @@ impl BlocksState {
         if self.audio_open {
             vec![
                 OptionRow::Choice(MUSIC_THEMES[self.assets.theme].0, false),
-                OptionRow::Slider(self.music_level),
-                OptionRow::Slider(self.sound_level),
+                OptionRow::Slider(self.music_level.min(self.volume_cap()), self.volume_cap()),
+                OptionRow::Slider(self.sound_level.min(self.volume_cap()), self.volume_cap()),
                 OptionRow::Choice(if self.play_unfocused { "Play" } else { "Pause" }, false),
                 OptionRow::Back,
             ]
@@ -1284,8 +1290,23 @@ impl BlocksState {
         self.background.low_sensory = settings.low_sensory;
         self.music_level = settings.music_level.min(VOLUME_LEVELS);
         self.sound_level = settings.sound_level.min(VOLUME_LEVELS);
-        self.assets.set_music_level(self.music_level);
-        self.assets.set_sound_level(self.sound_level);
+        self.apply_volumes();
+    }
+
+    /// the loudest the volume sliders go: half in low sensory
+    fn volume_cap(&self) -> u8 {
+        if self.background.low_sensory {
+            LOW_SENSORY_VOLUME_CAP
+        } else {
+            VOLUME_LEVELS
+        }
+    }
+
+    /// set the music and sound to the levels heard, the saved levels held under the cap
+    fn apply_volumes(&mut self) {
+        let cap = self.volume_cap();
+        self.assets.set_music_level(self.music_level.min(cap));
+        self.assets.set_sound_level(self.sound_level.min(cap));
     }
 
     /// copy the current options into the settings and save them

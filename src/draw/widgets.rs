@@ -130,12 +130,14 @@ pub(super) fn draw_menu_list<T: Menu>(
 }
 
 /// row of blocks filled up to the level, right aligned to right_x
+#[allow(clippy::too_many_arguments)]
 pub(super) fn draw_slider(
     canvas: &mut Painter,
     meshes: &Meshes,
     right_x: f32,
     center_y: f32,
     level: u8,
+    cap: u8, // segments past it are shut off
     max: u8,
     style: BlockStyle,
 ) {
@@ -150,8 +152,26 @@ pub(super) fn draw_slider(
         );
         if i < level {
             draw_block(canvas, meshes, rect, ACCENT_COLOR, style);
-        } else {
+        } else if i < cap {
             draw_rect(canvas, meshes, rect, SLIDER_EMPTY_COLOR);
+        } else {
+            // out of reach: a faint outline, crossed through
+            let line = (segment / 8.0).max(1.0);
+            let faint = with_alpha(SLIDER_EMPTY_COLOR, SLIDER_EMPTY_COLOR.a * 0.6);
+            for edge in [
+                Rect::new(rect.x, rect.y, rect.w, line),
+                Rect::new(rect.x, rect.y + rect.h - line, rect.w, line),
+                Rect::new(rect.x, rect.y, line, rect.h),
+                Rect::new(rect.x + rect.w - line, rect.y, line, rect.h),
+                Rect::new(
+                    rect.x,
+                    snap(rect.y + rect.h / 2.0 - line / 2.0),
+                    rect.w,
+                    line,
+                ),
+            ] {
+                draw_rect(canvas, meshes, edge, faint);
+            }
         }
     }
 }
