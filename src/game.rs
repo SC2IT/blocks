@@ -858,7 +858,7 @@ impl BlocksState {
         };
         self.assets.play(sound);
 
-        self.handle_completed_lines(&landed);
+        self.handle_completed_lines(&landed, false);
     }
 
     // increment the number of lockdown resets
@@ -882,15 +882,17 @@ impl BlocksState {
         }
     }
 
-    fn handle_completed_lines(&mut self, landed: &[IVec2]) {
+    /// chain: lines left full by the last clear, scored as a single line however many there are
+    fn handle_completed_lines(&mut self, landed: &[IVec2], chain: bool) {
         let num_lines_cleared = self.playfield.start_line_clear(LINE_CLEAR_DELAY, landed);
         if num_lines_cleared == 0 {
             return;
         }
+        let scored_lines = if chain { 1 } else { num_lines_cleared };
         self.effects.line_clear(&self.playfield);
-        self.background.surge(num_lines_cleared);
+        self.background.surge(scored_lines);
         // score the completed lines and append it to the total score
-        let score = score_cleared_lines(num_lines_cleared, self.level);
+        let score = score_cleared_lines(scored_lines, self.level);
         self.score += score;
         self.score_display.add(score);
         log::info!(
@@ -901,8 +903,8 @@ impl BlocksState {
         );
 
         // track the total number of lines cleared
-        self.total_lines_cleared += num_lines_cleared;
-        self.level_progress.add(num_lines_cleared);
+        self.total_lines_cleared += scored_lines;
+        self.level_progress.add(scored_lines);
         log::info!(
             "total number of cleared lines: {}",
             self.total_lines_cleared
@@ -914,7 +916,7 @@ impl BlocksState {
             self.increase_game_level();
             self.assets.play(Sfx::LevelUp);
         } else {
-            self.assets.play(match num_lines_cleared {
+            self.assets.play(match scored_lines {
                 1 => Sfx::LineClear,
                 2 => Sfx::LineClear2,
                 3 => Sfx::LineClear3,
@@ -1409,7 +1411,7 @@ impl EventHandler for BlocksState {
                         self.playfield.update_line_clear(delta_time);
                         // tough blocks can leave a line full, cracked: it clears straight away
                         if !self.playfield.is_clearing_lines() {
-                            self.handle_completed_lines(&[]);
+                            self.handle_completed_lines(&[], true);
                         }
                     } else if self.ready_playfield() {
                         self.playing_update(delta_time);
