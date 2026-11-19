@@ -112,6 +112,16 @@ impl Mode {
     }
 
     /// hold and the ghost piece
+    /// how much of the full speed up each level brings: the tough and glitch pieces
+    /// make Normal and Medium harder, so they speed up more slowly than Scott's ramp
+    pub fn speed_ramp(self) -> f64 {
+        match self {
+            Mode::Normal => 0.6,
+            Mode::Medium => 0.8,
+            Mode::Hard | Mode::Extreme => 1.0,
+        }
+    }
+
     pub fn assists(self) -> bool {
         self != Mode::Extreme
     }
@@ -1723,8 +1733,9 @@ fn gravity_delay(level: usize, mode: Mode) -> f64 {
         Mode::Extreme => level,
         _ => level.min(TOP_LEVEL),
     };
-    let n = level as i32 - 1;
-    let gravity_delay = (0.8 - n as f64 * 0.007).powi(n).max(MIN_GRAVITY_DELAY);
+    // levels past the first speed up by the mode's ramp, Hard and Extreme at full
+    let n = (level.max(1) - 1) as f64 * mode.speed_ramp();
+    let gravity_delay = (0.8 - n * 0.007).powf(n).max(MIN_GRAVITY_DELAY);
     log::info!("new gravity_delay {}", gravity_delay);
     gravity_delay
 }
@@ -1732,6 +1743,22 @@ fn gravity_delay(level: usize, mode: Mode) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn normal_and_medium_ramp_more_slowly() {
+        for level in [1, 15] {
+            // the same start, and hard keeps the full ramp
+            let full = (0.8 - (level - 1) as f64 * 0.007).powi(level as i32 - 1);
+            assert!((gravity_delay(level, Mode::Hard) - full.max(MIN_GRAVITY_DELAY)).abs() < 1e-9);
+        }
+        assert_eq!(gravity_delay(1, Mode::Normal), gravity_delay(1, Mode::Hard));
+        for level in [5, 10, 15, 30] {
+            assert!(gravity_delay(level, Mode::Normal) > gravity_delay(level, Mode::Medium));
+            assert!(gravity_delay(level, Mode::Medium) > gravity_delay(level, Mode::Hard));
+        }
+        // a row about every 0.08 s at the top of normal
+        assert!((gravity_delay(15, Mode::Normal) - 0.081).abs() < 0.002);
+    }
 
     #[test]
     fn mode_names_round_trip() {

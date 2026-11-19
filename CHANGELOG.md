@@ -27,7 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Four modes: Normal, Medium, Hard and Extreme. Extreme plays like the old
   Hard mode, speeding up to instant drops by level 19 with no hold or ghost
   piece. Normal, Medium and Hard keep hold and the ghost piece and stop
-  speeding up at level 15.
+  speeding up at level 15. Hard speeds up like the old Standard mode, while
+  Medium speeds up 80% as fast and Normal 60%, to make up for the tough and
+  glitch pieces: at level 15 a piece falls a row about every 0.08 seconds in
+  Normal, 0.03 in Medium and 0.007 in Hard.
 - Glitch pieces: now and then an odd four-block piece turns up, its blocks
   joined only at the corners or broken by gaps. Glitch pieces flicker in
   magenta and cyan and burst with jumps, color flashes and tears. Drip, an
